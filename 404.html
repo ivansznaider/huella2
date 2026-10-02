@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Redirigiendo…</title>
+<script>
+  // GitHub Pages sirve este archivo ante cualquier dirección que no exista dentro del sitio.
+  // Convierte /huella/20123456789 en /huella/?cuit=20123456789
+  (function () {
+    var partes = location.pathname.split("/").filter(Boolean);
+    var ultimo = (partes.pop() || "").replace(/\D/g, "");
+    var base = "/" + partes.join("/") + (partes.length ? "/" : "");
+    location.replace(ultimo.length === 11 ? base + "?cuit=" + ultimo : base);
+  })();
+</script>
+</head>
+<body><p>Redirigiendo…</p></body>
+</html>

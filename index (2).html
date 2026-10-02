@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Huella de financiamiento por cliente</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --papel:#f3f6f9; --superficie:#ffffff; --tinta:#1f2a44; --tinta-suave:#56627a;
+  --linea:#cfd8e3; --acento:#2f6f8f; --acento-suave:#e1edf3; --error:#a3303f;
+  --s1:#2f6f8f; --s2:#b7801a; --s3:#7a4e9c; --s4:#3e8e5a; --s5:#b5485d;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --papel:#121824; --superficie:#1a2231; --tinta:#e6ebf3; --tinta-suave:#9aa6bb;
+    --linea:#2e3a4f; --acento:#6cb3d4; --acento-suave:#1f3444; --error:#e27a88;
+    --s1:#6cb3d4; --s2:#e0ad4c; --s3:#b58ddb; --s4:#72c192; --s5:#e58599;
+  }
+}
+:root[data-theme="dark"]{
+  --papel:#121824; --superficie:#1a2231; --tinta:#e6ebf3; --tinta-suave:#9aa6bb;
+  --linea:#2e3a4f; --acento:#6cb3d4; --acento-suave:#1f3444; --error:#e27a88;
+  --s1:#6cb3d4; --s2:#e0ad4c; --s3:#b58ddb; --s4:#72c192; --s5:#e58599;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--papel);color:var(--tinta);
+  font-family:"Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:16px;line-height:1.5;font-variant-numeric:tabular-nums}
+main{max-width:960px;margin:0 auto;padding:40px 20px 56px}
+h1{font-size:1.75rem;font-weight:700;letter-spacing:-.01em;margin:0 0 4px}
+.bajada{
+    color: var(--tinta-suave);
+    margin: 0 0 28px;
+    max-width: 90ch;
+}
+.buscador{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}
+.campo{flex:1 1 320px;display:flex;flex-direction:column}
+label,.etiqueta{font-size:.875rem;font-weight:600;margin-bottom:6px;display:block}
+#cuit{font:inherit;font-size:2rem;font-weight:600;letter-spacing:.04em;padding:10px 14px;
+  border:2px solid var(--linea);border-radius:10px;background:var(--superficie);color:var(--tinta);width:100%}
+#cuit:focus{outline:none;border-color:var(--acento);box-shadow:0 0 0 3px var(--acento-suave)}
+button{font:inherit;cursor:pointer}
+.primario{align-self:flex-end;height:62px;padding:0 26px;border:0;border-radius:10px;
+  background:var(--acento);color:var(--superficie);font-weight:600;font-size:1rem}
+.primario:hover{filter:brightness(1.08)}
+button:focus-visible,.chip:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--acento);outline-offset:2px}
+.mensaje{min-height:1.5em;margin:8px 0 0;font-size:.9rem;color:var(--tinta-suave)}
+.mensaje.error{color:var(--error)}
+
+/* ---- filtro de entidades: desplegable con checkboxes ---- */
+.filtro{margin-top:18px;max-width:460px}
+.desplegable{position:relative}
+.desplegable-boton{width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:11px 14px;border:1px solid var(--linea);border-radius:10px;background:var(--superficie);
+  color:var(--tinta);font-size:.95rem;text-align:left}
+.desplegable-boton:hover:not([disabled]){border-color:var(--acento)}
+.desplegable-boton[disabled]{opacity:.6;cursor:not-allowed}
+.desplegable-boton .flecha{transition:transform .15s;color:var(--tinta-suave);flex:none}
+.desplegable-boton[aria-expanded="true"] .flecha{transform:rotate(180deg)}
+.panel{position:absolute;z-index:20;top:calc(100% + 6px);left:0;right:0;max-height:300px;overflow-y:auto;
+  background:var(--superficie);border:1px solid var(--linea);border-radius:10px;padding:6px;
+  box-shadow:0 10px 28px rgba(15,25,45,.16)}
+.panel[hidden]{display:none}
+.opcion{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:.925rem}
+.opcion:hover{background:var(--acento-suave)}
+.opcion input{width:17px;height:17px;accent-color:var(--acento);flex:none;margin:0}
+.opcion.todas{border-bottom:1px solid var(--linea);border-radius:8px 8px 0 0;margin-bottom:4px;font-weight:600}
+.opcion .color{width:10px;height:10px;border-radius:50%;flex:none}
+.opcion .nombre{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.opcion .codigo{font-size:.78rem;color:var(--tinta-suave);font-variant-numeric:tabular-nums;flex:none}
+.buscador-panel{position:sticky;top:0;background:var(--superficie);padding:4px 4px 8px;z-index:1}
+.buscador-panel input{width:100%;font:inherit;font-size:.9rem;padding:8px 10px;border:1px solid var(--linea);
+  border-radius:8px;background:var(--papel);color:var(--tinta)}
+.opcion.grupo{font-weight:600;border-bottom:1px solid var(--linea);border-radius:0;margin-bottom:4px;padding-bottom:10px}
+.sin-resultados{padding:10px;font-size:.9rem;color:var(--tinta-suave)}
+
+/* ---- resultados ---- */
+.resultado{margin-top:36px;display:none}
+.encabezado{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;
+  border-bottom:1px solid var(--linea);padding-bottom:14px;margin-bottom:18px}
+.encabezado h2{margin:0;font-size:1.35rem}
+.encabezado p{margin:2px 0 0;color:var(--tinta-suave);font-size:.9rem}
+.segmentado{display:inline-flex;border:1px solid var(--linea);border-radius:8px;overflow:hidden}
+.segmentado button{border:0;background:var(--superficie);color:var(--tinta);padding:7px 14px;font-size:.9rem}
+.segmentado button+button{border-left:1px solid var(--linea)}
+.segmentado button[aria-pressed="true"]{background:var(--acento);color:var(--superficie);font-weight:600}
+.leyenda{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.72rem;line-height:1.35;color:var(--tinta-suave)}
+.leyenda li{display:flex;align-items:center;gap:7px;min-width:0;max-width:100%;padding:2px 0}
+.leyenda li .punto{margin:0;flex:none;width:8px;height:8px}
+.leyenda li span:last-child{overflow-wrap:anywhere}
+.leyenda li.resaltada{color:var(--tinta);font-weight:600}
+.fila-orden{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:26px 0 10px}
+.etiqueta-orden{font-size:.875rem;font-weight:600;color:var(--tinta-suave)}
+.grafico{position:relative;height:380px;background:var(--superficie);border:1px solid var(--linea);border-radius:12px;padding:14px}
+
+/* ---- control de rango temporal ---- */
+.rango{margin-top:16px;background:var(--superficie);border:1px solid var(--linea);border-radius:12px;padding:14px 18px 6px}
+.rango-cabecera{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.rango-valores{font-weight:600;font-size:.95rem}
+.rango-pistas{position:relative;height:34px}
+.pista{position:absolute;top:15px;left:0;right:0;height:4px;border-radius:3px;background:var(--linea)}
+.pista-activa{position:absolute;top:15px;height:4px;border-radius:3px;background:var(--acento)}
+.rango-pistas input[type=range]{position:absolute;top:0;left:0;width:100%;height:34px;margin:0;
+  -webkit-appearance:none;appearance:none;background:none;pointer-events:none}
+.rango-pistas input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;
+  width:20px;height:20px;border-radius:50%;background:var(--acento);border:2px solid var(--superficie);
+  box-shadow:0 1px 4px rgba(15,25,45,.35);cursor:grab}
+.rango-pistas input[type=range]::-moz-range-thumb{pointer-events:auto;width:18px;height:18px;border-radius:50%;
+  background:var(--acento);border:2px solid var(--superficie);box-shadow:0 1px 4px rgba(15,25,45,.35);cursor:grab}
+.rango-pistas input[type=range]::-moz-range-track{background:none}
+
+.tabla-wrap{overflow-x:auto;margin-top:22px}
+table{border-collapse:collapse;width:100%;font-size:.925rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--linea);white-space:nowrap}
+th{font-weight:600;color:var(--tinta-suave)}
+td.num,th.num{text-align:right}
+.punto{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;vertical-align:middle}
+footer{margin-top:12px;padding-top:0;font-size:.8rem;color:var(--tinta-suave);
+  display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}
+.secundario{border:1px solid var(--linea);background:var(--superficie);color:var(--tinta);border-radius:8px;padding:6px 12px;font-size:.85rem}
+.alternativa{display:none;margin-top:20px;padding:16px;border:1px solid var(--linea);border-radius:12px;background:var(--superficie)}
+.alternativa p{margin:0 0 10px;max-width:70ch}
+.alternativa a{color:var(--acento);font-weight:600;word-break:break-all}
+textarea{width:100%;min-height:120px;font:inherit;font-size:.85rem;padding:10px;border:1px solid var(--linea);border-radius:8px;background:var(--papel);color:var(--tinta)}
+.fila-botones{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+@media (max-width:560px){#cuit{font-size:1.5rem}.primario{width:100%;height:50px}.grafico{height:300px}.filtro{max-width:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Huella de financiamiento por cliente</h1>
+  <p class="bajada">Ingresá un CUIT para ver la evolución del financiamiento y la situación en cada entidad durante los últimos 24 meses.</p>
+
+  <div class="buscador">
+    <div class="campo">
+      <label for="cuit">CUIT / CUIL / CDI</label>
+      <input id="cuit" inputmode="numeric" autocomplete="off" placeholder="20-12345678-9" maxlength="13">
+    </div>
+    <button class="primario" id="buscar">Consultar</button>
+  </div>
+
+  <div class="filtro">
+    <span class="etiqueta" id="etiquetaEntidades">Entidades</span>
+    <div class="desplegable" id="desplegable">
+      <button type="button" class="desplegable-boton" id="botonEntidades"
+              aria-expanded="false" aria-haspopup="true" aria-labelledby="etiquetaEntidades botonEntidades" disabled>
+        <span id="resumenEntidades">Primero consultá un CUIT</span>
+        <span class="flecha" aria-hidden="true">▾</span>
+      </button>
+      <div class="panel" id="panelEntidades" role="group" aria-label="Entidades a mostrar" hidden></div>
+    </div>
+  </div>
+
+  <p class="mensaje" id="mensaje" role="status"></p>
+
+  <section class="alternativa" id="alternativa">
+    <p><strong>No se pudo consultar la API desde esta página.</strong> <span id="motivo"></span></p>
+    <p>Abrí este enlace en otra pestaña, copiá todo el texto que aparece y pegalo abajo:</p>
+    <p><a id="enlace" href="#" target="_blank" rel="noopener"></a></p>
+    <textarea id="pegado" placeholder='{"status":200,"results":{...}}'></textarea>
+    <div class="fila-botones"><button class="secundario" id="usarPegado">Graficar lo pegado</button></div>
+  </section>
+
+  <section id="resultadoHistorico" class="resultado" aria-live="polite">
+    <div class="encabezado">
+      <div><h2 id="nombreHistorico"></h2><p id="detalleHistorico"></p></div>
+      <div class="segmentado" id="selectorHistorico" role="group" aria-label="Variable histórica"></div>
+    </div>
+    <div class="grafico"><canvas id="canvasHistorico"></canvas></div>
+    <ul class="leyenda" id="leyendaHistorico" aria-label="Referencias del gráfico"></ul>
+
+    <div class="rango" id="rango">
+      <div class="rango-cabecera">
+        <span class="rango-valores"><span id="rangoDesdeTexto"></span> — <span id="rangoHastaTexto"></span></span>
+        <button class="secundario" id="rangoReset">Ver todo el período</button>
+      </div>
+      <div class="rango-pistas">
+        <div class="pista"></div>
+        <div class="pista-activa" id="pistaActiva"></div>
+        <input type="range" id="rangoDesde" min="0" max="0" value="0" aria-label="Período inicial">
+        <input type="range" id="rangoHasta" min="0" max="0" value="0" aria-label="Período final">
+      </div>
+    </div>
+
+    <div class="fila-orden">
+      <span class="etiqueta-orden" id="etiquetaOrden">Ordenar la tabla</span>
+      <div class="segmentado" id="selectorOrden" role="group" aria-labelledby="etiquetaOrden"></div>
+    </div>
+
+    <div class="tabla-wrap"><table id="tablaHistorico"></table></div>
+  </section>
+    <footer>
+    <span id="apertura b">Apertura de Bancos B: Provinciales;  Sucursales del exterior y Compañías Financieras y; Otras.</span>
+  </footer>
+  <footer>
+    <span id="fuente">Fuente: BCRA, API Central de Deudores v1.0 (montos en miles de pesos)</span>
+  </footer>
+  <footer>
+    <span id="elaborado">Gerencia de Supervisión de Riesgo en Entidades</span>
+  </footer>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const API_HISTORICA = "https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/Historicas/";
+
+const VARIABLES = {
+  monto:     { etiqueta: "Deuda (miles de $)", escalonada: false, decimales: 1 },
+  // margen: espacio libre arriba del máximo para que la línea no quede pegada al borde
+  situacion: { etiqueta: "Situación",          escalonada: true,  decimales: 0, min: 0, max: 5, margen: 0.5 }
+};
+
+let consulta = null;
+let grafico = null;
+let variableElegida = "monto";
+
+let entidadesDisponibles = [];        // todas las entidades del CUIT consultado, ordenadas
+let entidadesElegidas = new Set();    // selección explícita: vacío = ninguna
+let periodosHistoricos = [];          // dominio completo del control de rango
+let idxDesde = 0, idxHasta = 0;
+
+const $ = id => document.getElementById(id);
+const soloDigitos = s => String(s ?? "").replace(/\D/g, "");
+const formatoCuit = d => d.length === 11 ? `${d.slice(0,2)}-${d.slice(2,10)}-${d.slice(10)}` : d;
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+const fmtPeriodo = p => { const d = soloDigitos(p); return d.length >= 6 ? `${d.slice(0,4)}-${d.slice(4,6)}` : String(p); };
+function mensaje(t, error=false){ const m=$("mensaje"); m.textContent=t; m.classList.toggle("error", error); }
+
+function digitoOk(d){
+  const w=[5,4,3,2,7,6,5,4,3,2];
+  let r=11-(w.reduce((a,x,i)=>a+x*Number(d[i]),0)%11); if(r===11) r=0; if(r===10) r=9;
+  return r===Number(d[10]);
+}
+
+function colores(){
+  const cs = getComputedStyle(document.documentElement);
+  return { serie: ["--s1","--s2","--s3","--s4","--s5"].map(v => cs.getPropertyValue(v).trim()),
+           tinta: cs.getPropertyValue("--tinta-suave").trim(), linea: cs.getPropertyValue("--linea").trim() };
+}
+
+// Color estable por entidad: no cambia aunque se filtren otras
+function colorEntidad(banco){
+  const c = colores(), i = entidadesDisponibles.indexOf(banco);
+  return i < 0 ? c.serie[0] : (i < c.serie.length ? c.serie[i] : `hsl(${(i*67)%360} 45% 50%)`);
+}
+
+/* ------------------------------------------------ entidades financieras (Com. "B" / listado propio) */
+
+// Listado de entidades financieras con su código. Para actualizarlo, reemplazar esta lista.
+const ENTIDADES_EF = [{"codigo":7,"nombre":"Bco. de Galicia y Bs As","grupo":"A","grupoII":"A","dsib":true},{"codigo":11,"nombre":"Bco. de la Nación Arg.","grupo":"A","grupoII":"A","dsib":true},{"codigo":14,"nombre":"Bco. de la Pcia. de Bs. As.","grupo":"A","grupoII":"A","dsib":false},{"codigo":15,"nombre":"ICBC Arg.","grupo":"A","grupoII":"A","dsib":false},{"codigo":16,"nombre":"Citibank","grupo":"A","grupoII":"A","dsib":false},{"codigo":17,"nombre":"Bco. BBVA Arg.","grupo":"A","grupoII":"A","dsib":true},{"codigo":20,"nombre":"Bco. Pcia. de Córdoba","grupo":"A","grupoII":"A","dsib":false},{"codigo":27,"nombre":"Bco. Supervielle","grupo":"A","grupoII":"A","dsib":false},{"codigo":29,"nombre":"Bco. de la Ciudad de Bs. As.","grupo":"A","grupoII":"A","dsib":false},{"codigo":34,"nombre":"Bco. Patagonia","grupo":"A","grupoII":"A","dsib":false},{"codigo":44,"nombre":"Bco. Hipotecario","grupo":"A","grupoII":"A","dsib":false},{"codigo":45,"nombre":"Bco. de San Juan","grupo":"B","grupoII":"B - Provinciales","dsib":false},{"codigo":65,"nombre":"Bco. Munic. de Rosario","grupo":"B","grupoII":"B - Provinciales","dsib":false},{"codigo":72,"nombre":"Bco. Santander Arg.","grupo":"A","grupoII":"A","dsib":true},{"codigo":83,"nombre":"Bco. del Chubut","grupo":"B","grupoII":"B - Provinciales","dsib":false},{"codigo":86,"nombre":"Bco. de Santa Cruz","grupo":"B","grupoII":"B - Provinciales","dsib":false},{"codigo":93,"nombre":"Bco. de La Pampa","grupo":"B","grupoII":"B - Provinciales","dsib":false},{"codigo":94,"nombre":"Bco. de Corrientes","grupo":"B","grupoII":"B - Provinciales","dsib":false},{"codigo":97,"nombre":"Bco. Pcia. de Neuquén","grupo":"B","grupoII":"B - Provinciales","dsib":false},{"codigo":131,"nombre":"Bank of China","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false},{"codigo":143,"nombre":"Brubank","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":147,"nombre":"Bibank","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":150,"nombre":"Bco. GGAL","grupo":"A","grupoII":"A","dsib":false},{"codigo":165,"nombre":"J.P. Morgan Chase","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false},{"codigo":191,"nombre":"Bco. Credicoop","grupo":"A","grupoII":"A","dsib":false},{"codigo":198,"nombre":"Bco. de Valores","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":247,"nombre":"Bco. Roela","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":254,"nombre":"Bco. Mariva","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":266,"nombre":"BNP Paribas","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false},{"codigo":268,"nombre":"Bco. Pcia. de Tierra del Fuego","grupo":"B","grupoII":"B - Provinciales","dsib":false},{"codigo":269,"nombre":"Bco. Rep. del Uruguay","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false},{"codigo":277,"nombre":"Bco. Sáenz","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":281,"nombre":"Bco. Meridian","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":285,"nombre":"Bco. Macro","grupo":"A","grupoII":"A","dsib":true},{"codigo":299,"nombre":"Bco. Comafi","grupo":"A","grupoII":"A","dsib":false},{"codigo":300,"nombre":"Bco. Inv. y Com. Exterior","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":301,"nombre":"Bco. Piano","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":305,"nombre":"Bco. Julio","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":309,"nombre":"Bco. Rioja","grupo":"B","grupoII":"B - Provinciales","dsib":false},{"codigo":310,"nombre":"Bco. del Sol","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":311,"nombre":"Nvo. Bco. del Chaco","grupo":"B","grupoII":"B - Provinciales","dsib":false},{"codigo":312,"nombre":"Bco. Voii","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":315,"nombre":"Bco. de Formosa","grupo":"B","grupoII":"B - Provinciales","dsib":false},{"codigo":319,"nombre":"Bco. CMF","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":321,"nombre":"Bco. de Santigo del Estero","grupo":"B","grupoII":"B - Provinciales","dsib":false},{"codigo":322,"nombre":"Bco. Industrial","grupo":"A","grupoII":"A","dsib":false},{"codigo":330,"nombre":"Nvo. Bco. de Santa Fe","grupo":"A","grupoII":"A","dsib":false},{"codigo":331,"nombre":"Bco. Cetelem","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":332,"nombre":"Bco. de Servicios Financieros","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":338,"nombre":"Bco. de Servicios y Transacciones","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":339,"nombre":"RCI Banque","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false},{"codigo":340,"nombre":"BACS Bco. de Crédito","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":341,"nombre":"Bco. Masventas","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":384,"nombre":"Ualá Bank","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":386,"nombre":"Nvo. Bco. de Entre Ríos","grupo":"B","grupoII":"B - Provinciales","dsib":false},{"codigo":389,"nombre":"Bco. Columbia","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":426,"nombre":"Bco. BICA","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":431,"nombre":"Bco. Coinag","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":432,"nombre":"Bco. de Comercio","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":435,"nombre":"Bco. Sucrédito Regional","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":448,"nombre":"Bco. Dino","grupo":"B","grupoII":"B - Otras","dsib":false},{"codigo":44077,"nombre":"Cía. Financiera Arg.","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false},{"codigo":44088,"nombre":"Volkswagen Cía. Fin.","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false},{"codigo":44092,"nombre":"FCA Cía. Fin.","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false},{"codigo":44093,"nombre":"GPAT Cía. Fin.","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false},{"codigo":44094,"nombre":"Mercedes Benz Cía. Fin.","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false},{"codigo":44095,"nombre":"Rombo Cía. Fin.","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false},{"codigo":44096,"nombre":"John Deere Cía. Fin.","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false},{"codigo":44098,"nombre":"PSA Finance Cía. Fin.","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false},{"codigo":44099,"nombre":"Toyota Cía. Fin.","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false},{"codigo":45030,"nombre":"Naranja Digital Cía. Fin.","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false},{"codigo":45056,"nombre":"Montemar Cía. Fin.","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false},{"codigo":45072,"nombre":"Reba Cía. Fin.","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false},{"codigo":65203,"nombre":"Crédito Reg. Cía. Fin.","grupo":"B","grupoII":"B - Suc. Ext. y Cías. Fin.","dsib":false}];
+
+// Casos que el emparejamiento automático no resuelve solo: código -> comienzo del nombre que devuelve la API
+const ALIAS_EF = {
+  15: ["INDUSTRIAL AND COMMERCIAL BANK OF CHINA", "ICBC"],
+  150: ["BANCO GGAL", "GGAL", "HSBC"],
+  16: ["CITIBANK"],
+  165: ["JP MORGAN"],
+  269: ["BANCO DE LA REPUBLICA ORIENTAL DEL URUGUAY"],
+  44077: ["COMPANIA FINANCIERA ARGENTINA"]
+};
+
+// Otros agentes no financieros informados al BCRA (emisoras de tarjetas, proveedores no
+// financieros, SGR y plataformas de créditos). Para actualizarlo, reemplazar esta lista.
+const ENTIDADES_PNFC = [{"codigo":72609,"nombre":"ADANCARD S.A.","tipo":"Emisora de tarjeta"},{"codigo":70142,"nombre":"ALARFIN S.A.","tipo":"Emisora de tarjeta"},{"codigo":70101,"nombre":"AMERICAN EXPRESS ARGENTINA S.A.","tipo":"Emisora de tarjeta"},{"codigo":72101,"nombre":"ASOC MUT AYUDA ASOC ADHER CLUB ATL UNION","tipo":"Emisora de tarjeta"},{"codigo":72117,"nombre":"ASOC MUT CONSEJ ARROYOS COOP EMP MULTIPL","tipo":"Emisora de tarjeta"},{"codigo":70430,"nombre":"ASOC. MUTUAL DEL CLUB ALMAFUERTE DE LAS VARILLAS","tipo":"Emisora de tarjeta"},{"codigo":70268,"nombre":"Asociación Mutual 20 de Julio","tipo":"Emisora de tarjeta"},{"codigo":72129,"nombre":"ASOCIACION MUTUAL CLUB ATLETICO PILAR","tipo":"Emisora de tarjeta"},{"codigo":72128,"nombre":"ASOCIACION MUTUAL CLUB COLON DE SAN JUSTO","tipo":"Emisora de tarjeta"},{"codigo":70270,"nombre":"Asociacion Mutual Club Social Deportivo Ascension","tipo":"Emisora de tarjeta"},{"codigo":72618,"nombre":"ASOCIACION MUTUAL DE ASOCIADOS Y ADHERENTES DEL CENTRO JUVENIL SPORTIVO BELGRANO","tipo":"Emisora de tarjeta"},{"codigo":72134,"nombre":"Asociación Mutual de Ayuda entre Asociados y Adherentes del Club Atlético Libertad.","tipo":"Emisora de tarjeta"},{"codigo":72132,"nombre":"Asociación Mutual de Ayuda entre Asociados y Adherentes del Club Deportivo Libertad","tipo":"Emisora de tarjeta"},{"codigo":72653,"nombre":"ASOCIACION MUTUAL DE LA FAMILIA DEL CALZADO","tipo":"Emisora de tarjeta"},{"codigo":72102,"nombre":"ASOCIACION MUTUAL DEL CLUB A. ARGENTINO","tipo":"Emisora de tarjeta"},{"codigo":72131,"nombre":"Asociación Mutual del Personal Jerárquico de Bancos Oficiales Nacionales","tipo":"Emisora de tarjeta"},{"codigo":72112,"nombre":"ASOCIACIÓN MUTUAL ENTRE SOCIOS DEL CENTRO ECONÓMICO DE CAÑADA DE GÓMEZ","tipo":"Emisora de tarjeta"},{"codigo":72640,"nombre":"ASOCIACION MUTUAL INTEGRAL DE CONSUMOS Y SERVICIOS (AMINT)","tipo":"Emisora de tarjeta"},{"codigo":72135,"nombre":"ASOCIACION MUTUAL PYME RURAL","tipo":"Emisora de tarjeta"},{"codigo":72622,"nombre":"ASOCIACION MUTUAL SANTA AGUSTINA","tipo":"Emisora de tarjeta"},{"codigo":72106,"nombre":"ASOCIACION MUTUAL VENADO TUERTO","tipo":"Emisora de tarjeta"},{"codigo":72136,"nombre":"ASOCIACIÓN MUTUALISTA DEL CLUB CENTRAL SAN CARLOS","tipo":"Emisora de tarjeta"},{"codigo":71605,"nombre":"AVALON CREDITOS PERSONALES S.A.","tipo":"Emisora de tarjeta"},{"codigo":70808,"nombre":"Caja Municipal de Préstamos Sociedad de Economía Mixta","tipo":"Emisora de tarjeta"},{"codigo":72307,"nombre":"CAJA POPULAR DE AHORROS PCIA DE TUCUMAN","tipo":"Emisora de tarjeta"},{"codigo":72308,"nombre":"CASTILLO S.A.C.I.F.I.A.","tipo":"Emisora de tarjeta"},{"codigo":70147,"nombre":"CENCOSUD S A","tipo":"Emisora de tarjeta"},{"codigo":71402,"nombre":"CENTRO CARD S.A.","tipo":"Emisora de tarjeta"},{"codigo":70422,"nombre":"CLUB ATLETICO AERONAUTICO BIBLIOTECA Y MUTUAL SARMIENTO","tipo":"Emisora de tarjeta"},{"codigo":72103,"nombre":"CLUB ATLÉTICO SAN JORGE MUTUAL Y SOCIAL","tipo":"Emisora de tarjeta"},{"codigo":72643,"nombre":"Club Atletico Social Corralense A.M.","tipo":"Emisora de tarjeta"},{"codigo":70229,"nombre":"CONTAR S.A.","tipo":"Emisora de tarjeta"},{"codigo":70603,"nombre":"COOP SERV ADM VTAS CRED Y CRED GUIA LTDA","tipo":"Emisora de tarjeta"},{"codigo":72631,"nombre":"COOPERATIVA DE PROVISION DE BIENES Y SERVICIOS ALLEN LTDA","tipo":"Emisora de tarjeta"},{"codigo":72633,"nombre":"COOPERATIVA FARO LTDA","tipo":"Emisora de tarjeta"},{"codigo":70420,"nombre":"Corfa Servi S.R.L.","tipo":"Emisora de tarjeta"},{"codigo":70140,"nombre":"COTO CENTRO INTEGRAL DE COMERCIALIZAC SA","tipo":"Emisora de tarjeta"},{"codigo":70212,"nombre":"CREDI-PAZ S.A.","tipo":"Emisora de tarjeta"},{"codigo":72120,"nombre":"Credife S.A.","tipo":"Emisora de tarjeta"},{"codigo":72133,"nombre":"CREDIFIAR S.A.","tipo":"Emisora de tarjeta"},{"codigo":72303,"nombre":"CREDIMAS S.A.","tipo":"Emisora de tarjeta"},{"codigo":72603,"nombre":"CREDIMAZ S.R.L.","tipo":"Emisora de tarjeta"},{"codigo":70269,"nombre":"Credinos Cooperativa de Vivienda, Crédito, Consumo, Servicios Asistenciales y de Turismo Ltda.","tipo":"Emisora de tarjeta"},{"codigo":72126,"nombre":"CREDISOL S.A.","tipo":"Emisora de tarjeta"},{"codigo":71204,"nombre":"Crédito Móvil S.A.","tipo":"Emisora de tarjeta"},{"codigo":71302,"nombre":"CUMAR SA","tipo":"Emisora de tarjeta"},{"codigo":71801,"nombre":"DATA 2000 S.A.","tipo":"Emisora de tarjeta"},{"codigo":70805,"nombre":"DILFER S.A.","tipo":"Emisora de tarjeta"},{"codigo":72627,"nombre":"Dock Argentina SA","tipo":"Emisora de tarjeta"},{"codigo":70806,"nombre":"EMPRENDER S.A.","tipo":"Emisora de tarjeta"},{"codigo":71202,"nombre":"EMPRESUR S.A.","tipo":"Emisora de tarjeta"},{"codigo":70256,"nombre":"EUROCRED S.A.","tipo":"Emisora de tarjeta"},{"codigo":70248,"nombre":"FAVACARD S.A","tipo":"Emisora de tarjeta"},{"codigo":70239,"nombre":"FERTIL FINANZAS S.A.","tipo":"Emisora de tarjeta"},{"codigo":70161,"nombre":"FIDEN S.A.","tipo":"Emisora de tarjeta"},{"codigo":72649,"nombre":"FINANROL SA","tipo":"Emisora de tarjeta"},{"codigo":70168,"nombre":"Findi S.A.","tipo":"Emisora de tarjeta"},{"codigo":72607,"nombre":"FIRENZE COOPERATIVA DE CRÉDITO, CONSUMO, VIVIENDA, TURISMO Y SERVICIOS ASISTENCIALES LIMITADA","tipo":"Emisora de tarjeta"},{"codigo":72651,"nombre":"GARPA S. A.","tipo":"Emisora de tarjeta"},{"codigo":71103,"nombre":"GLOBAL S.R.L.","tipo":"Emisora de tarjeta"},{"codigo":70151,"nombre":"GRUPO CTALAMOCHITA S.A.","tipo":"Emisora de tarjeta"},{"codigo":72601,"nombre":"IPLyC MP Hogar Consorcio de Cooperación","tipo":"Emisora de tarjeta"},{"codigo":70210,"nombre":"ITALCRED S.A.","tipo":"Emisora de tarjeta"},{"codigo":70252,"nombre":"JUCARD JUNIN S.R.L.","tipo":"Emisora de tarjeta"},{"codigo":72645,"nombre":"LB FINANZAS S.A.","tipo":"Emisora de tarjeta"},{"codigo":70156,"nombre":"LIDERAR CARD S.A.","tipo":"Emisora de tarjeta"},{"codigo":70503,"nombre":"LOCRED SRL","tipo":"Emisora de tarjeta"},{"codigo":72652,"nombre":"MALAGA ASSET GROUP S.A.","tipo":"Emisora de tarjeta"},{"codigo":72634,"nombre":"MERCADOLIBRE S.R.L.","tipo":"Emisora de tarjeta"},{"codigo":72644,"nombre":"MOBBEX ARGENTINA SRL","tipo":"Emisora de tarjeta"},{"codigo":70421,"nombre":"MUTUAL COYSPU","tipo":"Emisora de tarjeta"},{"codigo":70231,"nombre":"MUTUAL DE ASOC Y ADHER CLUB SPORTS SALTO","tipo":"Emisora de tarjeta"},{"codigo":72614,"nombre":"MUTUAL DE DOCENTES DE NEUQUEN","tipo":"Emisora de tarjeta"},{"codigo":70429,"nombre":"MUTUAL DE LAS COMUNIDADES","tipo":"Emisora de tarjeta"},{"codigo":72122,"nombre":"Mutual de Residentes del Barrio Tais","tipo":"Emisora de tarjeta"},{"codigo":72113,"nombre":"MUTUAL ENTRE ASOC COOPER MUTUAL PATRONAL","tipo":"Emisora de tarjeta"},{"codigo":72104,"nombre":"MUTUAL SOCIOS ASOC MEDIC ROSARIO","tipo":"Emisora de tarjeta"},{"codigo":72629,"nombre":"N&CO PAY CREDIT SERVICIOS FINANCIEROS S.A.","tipo":"Emisora de tarjeta"},{"codigo":71101,"nombre":"NOA CARD S.A.","tipo":"Emisora de tarjeta"},{"codigo":72613,"nombre":"NORYSUR SOCIEDAD ANONIMA","tipo":"Emisora de tarjeta"},{"codigo":70234,"nombre":"NUEVA CARD S.A.","tipo":"Emisora de tarjeta"},{"codigo":72638,"nombre":"Pago Virtual del Sur S.A.","tipo":"Emisora de tarjeta"},{"codigo":72623,"nombre":"PAYAGTK SA","tipo":"Emisora de tarjeta"},{"codigo":70166,"nombre":"PRESTAMAS S.A.","tipo":"Emisora de tarjeta"},{"codigo":70165,"nombre":"Propay SRL","tipo":"Emisora de tarjeta"},{"codigo":72654,"nombre":"Rodolfo Cassini S.A.","tipo":"Emisora de tarjeta"},{"codigo":70802,"nombre":"S.A. CLUB DEL ESTE","tipo":"Emisora de tarjeta"},{"codigo":70228,"nombre":"SANTA MONICA SA","tipo":"Emisora de tarjeta"},{"codigo":70435,"nombre":"SERVICIOS FECESCOR S.A","tipo":"Emisora de tarjeta"},{"codigo":72639,"nombre":"SILOHUB ARGENTINA S.A.S.","tipo":"Emisora de tarjeta"},{"codigo":70433,"nombre":"SISCOM S.R.L.","tipo":"Emisora de tarjeta"},{"codigo":70803,"nombre":"SISTEMA DE CREDITO DE ENTRE RIOS S.A.","tipo":"Emisora de tarjeta"},{"codigo":72123,"nombre":"SOCIEDAD ARG DE SOCORROS MUTUO CORONDA","tipo":"Emisora de tarjeta"},{"codigo":72641,"nombre":"SUPRESTAMO SAS","tipo":"Emisora de tarjeta"},{"codigo":70407,"nombre":"TALOR SOCIEDAD COLECTIVA","tipo":"Emisora de tarjeta"},{"codigo":70427,"nombre":"TARJETA GRUPAR S.A.","tipo":"Emisora de tarjeta"},{"codigo":70408,"nombre":"TARJETA NARANJA S.A.U.","tipo":"Emisora de tarjeta"},{"codigo":70301,"nombre":"Tarjeta Pampeana S.A","tipo":"Emisora de tarjeta"},{"codigo":70424,"nombre":"Tarjeta PL S.A.","tipo":"Emisora de tarjeta"},{"codigo":72304,"nombre":"TARJETA TITANIO S.A.","tipo":"Emisora de tarjeta"},{"codigo":70224,"nombre":"TARJETAS DEL MAR S.A.","tipo":"Emisora de tarjeta"},{"codigo":70257,"nombre":"TARTAN S.A.","tipo":"Emisora de tarjeta"},{"codigo":72501,"nombre":"TDF S.A.","tipo":"Emisora de tarjeta"},{"codigo":70154,"nombre":"TELEPEAJE S.A.","tipo":"Emisora de tarjeta"},{"codigo":70411,"nombre":"TEVISAL S.A.","tipo":"Emisora de tarjeta"},{"codigo":70903,"nombre":"Única compañía de Crédito S.A.","tipo":"Emisora de tarjeta"},{"codigo":72306,"nombre":"VALLE FERTIL S.A.","tipo":"Emisora de tarjeta"},{"codigo":70413,"nombre":"VILLTER S.R.L.","tipo":"Emisora de tarjeta"},{"codigo":71803,"nombre":"VISION S.A.","tipo":"Emisora de tarjeta"},{"codigo":72621,"nombre":"WENANCE SA","tipo":"Emisora de tarjeta"},{"codigo":70141,"nombre":"YPF S.A.","tipo":"Emisora de tarjeta"},{"codigo":70412,"nombre":"Zafiro S.A.","tipo":"Emisora de tarjeta"},{"codigo":55234,"nombre":"1° de Julio Cooperativa de Vivienda, Crédito y Consumo Ltda","tipo":"Proveedor no financiero"},{"codigo":55312,"nombre":"ABAN DIGITAL S.A.","tipo":"Proveedor no financiero"},{"codigo":55001,"nombre":"Accicom S.A.","tipo":"Proveedor no financiero"},{"codigo":55267,"nombre":"ACUATRO S.A.","tipo":"Proveedor no financiero"},{"codigo":55141,"nombre":"AD CREDITOS S.A.","tipo":"Proveedor no financiero"},{"codigo":55459,"nombre":"Admiral Finance SA","tipo":"Proveedor no financiero"},{"codigo":55319,"nombre":"AGCO CAPITAL ARGENTINA S.A.","tipo":"Proveedor no financiero"},{"codigo":55349,"nombre":"AGILCRED S.A.","tipo":"Proveedor no financiero"},{"codigo":55083,"nombre":"AGL CAPITAL S.A.","tipo":"Proveedor no financiero"},{"codigo":55481,"nombre":"AGMA S.R.L","tipo":"Proveedor no financiero"},{"codigo":55551,"nombre":"AGRODIGITAL SAS","tipo":"Proveedor no financiero"},{"codigo":55576,"nombre":"AGRUPAR ASOCIACIÓN MUTUAL","tipo":"Proveedor no financiero"},{"codigo":55329,"nombre":"ALAU TECNOLOGIA S. A. U.","tipo":"Proveedor no financiero"},{"codigo":55626,"nombre":"ALTAS PAGOS S.A.","tipo":"Proveedor no financiero"},{"codigo":55628,"nombre":"Altivex S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55426,"nombre":"ALVAREZ&ALVAREZ S.A.S.","tipo":"Proveedor no financiero"},{"codigo":55067,"nombre":"Amargot Créditos y Servicios S.A.","tipo":"Proveedor no financiero"},{"codigo":55002,"nombre":"AMEPORT - Mutual del Personal del Estado Nacional, Provincial, Municipal y Afines","tipo":"Proveedor no financiero"},{"codigo":55557,"nombre":"ANDESTEK","tipo":"Proveedor no financiero"},{"codigo":55162,"nombre":"Aquiprestamos.com S.A.","tipo":"Proveedor no financiero"},{"codigo":55107,"nombre":"ARGENCRED S.A.","tipo":"Proveedor no financiero"},{"codigo":55248,"nombre":"ARGENPAY SAU","tipo":"Proveedor no financiero"},{"codigo":55112,"nombre":"Argentina Corporación Financiera S.A.","tipo":"Proveedor no financiero"},{"codigo":55384,"nombre":"ARGENTINA ESSENTIAL SERVICES S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55531,"nombre":"ARGENTUM CAPITAL SA","tipo":"Proveedor no financiero"},{"codigo":55160,"nombre":"Arrayanes Cooperativa de Vivienda, Crédito y Consumo","tipo":"Proveedor no financiero"},{"codigo":55567,"nombre":"Asistencia Crediticia Personal SA","tipo":"Proveedor no financiero"},{"codigo":55342,"nombre":"Asistir Cooperativa de Vivienda, Credito, Consumo y Servicios Sociales Limitada","tipo":"Proveedor no financiero"},{"codigo":55633,"nombre":"Asociación Italiana de Socorro Mutuo Unione e Benevolenza","tipo":"Proveedor no financiero"},{"codigo":55144,"nombre":"ASOCIACION MUTUAL 23 DE SEPTIEMBRE","tipo":"Proveedor no financiero"},{"codigo":55524,"nombre":"ASOCIACION MUTUAL 7 DE AGOSTO","tipo":"Proveedor no financiero"},{"codigo":55511,"nombre":"ASOCIACION MUTUAL 9 DE JULIO OLIMPICO FREYRE","tipo":"Proveedor no financiero"},{"codigo":55086,"nombre":"Asociación Mutual Asis","tipo":"Proveedor no financiero"},{"codigo":55437,"nombre":"ASOCIACION MUTUAL BUENOS AIRES STAFF DE MEDICINA Y SERVICIOS","tipo":"Proveedor no financiero"},{"codigo":55281,"nombre":"ASOCIACION MUTUAL CELESOL DE SERVICIOS INTEGRALES Y EDUCATIVOS","tipo":"Proveedor no financiero"},{"codigo":55003,"nombre":"Asociación Mutual Centro Litoral","tipo":"Proveedor no financiero"},{"codigo":55476,"nombre":"ASOCIACION MUTUAL CRESER","tipo":"Proveedor no financiero"},{"codigo":55490,"nombre":"ASOCIACION MUTUAL DE ASOCIADOS DEL CLUB ATLETICO UNION","tipo":"Proveedor no financiero"},{"codigo":55482,"nombre":"Asociación Mutual de Ayuda Entre Asociados y Adherentes de Romang Futbol Club","tipo":"Proveedor no financiero"},{"codigo":55088,"nombre":"ASOCIACIÓN MUTUAL DE DOCENTES DE LA PROVINCIA DEL CHACO","tipo":"Proveedor no financiero"},{"codigo":55077,"nombre":"Asociación Mutual de Escribanos","tipo":"Proveedor no financiero"},{"codigo":55004,"nombre":"Asociación Mutual de la Economía Solidaria","tipo":"Proveedor no financiero"},{"codigo":55005,"nombre":"Asociación Mutual de las Fuerzas Armadas y Seguridad (AMFAYS)","tipo":"Proveedor no financiero"},{"codigo":55082,"nombre":"Asociación Mutual de Pensionados Sociales Ley 5110","tipo":"Proveedor no financiero"},{"codigo":55152,"nombre":"Asociación Mutual de protección Familiar","tipo":"Proveedor no financiero"},{"codigo":55492,"nombre":"Asociación Mutual de Trabajadores Argentinos Estatales","tipo":"Proveedor no financiero"},{"codigo":55529,"nombre":"Asociación Mutual de Trabajadores Municipales de Rosario","tipo":"Proveedor no financiero"},{"codigo":55006,"nombre":"Asociación Mutual del Litoral 17 de Enero","tipo":"Proveedor no financiero"},{"codigo":55115,"nombre":"Asociación Mutual Desarrollo Regional","tipo":"Proveedor no financiero"},{"codigo":55504,"nombre":"Asociación Mutual DOC","tipo":"Proveedor no financiero"},{"codigo":55371,"nombre":"ASOCIACION MUTUAL EMLEADOS DE COMERCIO DE ROSARIO","tipo":"Proveedor no financiero"},{"codigo":55277,"nombre":"ASOCIACION MUTUAL FIAT CONCORD","tipo":"Proveedor no financiero"},{"codigo":55525,"nombre":"ASOCIACION MUTUAL GRAL J JOSE DE URQUIZA","tipo":"Proveedor no financiero"},{"codigo":55387,"nombre":"Asociacion Mutual Integracion Solidaria Villa Maria \"AMISVIMA\"","tipo":"Proveedor no financiero"},{"codigo":55121,"nombre":"Asociación Mutual Malvinas Argentinas","tipo":"Proveedor no financiero"},{"codigo":55007,"nombre":"Asociación Mutual Modelo de Entre Ríos","tipo":"Proveedor no financiero"},{"codigo":55563,"nombre":"Asociación Mutual Obras Públicas de la Nación","tipo":"Proveedor no financiero"},{"codigo":55487,"nombre":"ASOCIACION MUTUAL PARA EL PERSONAL DEL PODER JUDICIAL Y TRABAJADORES INDEPENDIENTES CONGRESO DE TUCUMAN","tipo":"Proveedor no financiero"},{"codigo":55438,"nombre":"ASOCIACION MUTUAL PARA LA PEQUEÑA Y MEDIANA EMPRESA DEL LITORAL","tipo":"Proveedor no financiero"},{"codigo":55270,"nombre":"ASOCIACION MUTUAL PEDRO DE MENDOZA","tipo":"Proveedor no financiero"},{"codigo":55413,"nombre":"ASOCIACIÓN MUTUAL PILARENSES","tipo":"Proveedor no financiero"},{"codigo":55526,"nombre":"Asociacion Mutual Progreso Entrerriano","tipo":"Proveedor no financiero"},{"codigo":55555,"nombre":"ASOCIACION MUTUAL SEMTUR 13 DE MARZO AMS","tipo":"Proveedor no financiero"},{"codigo":55520,"nombre":"Asociación Mutual Trabajadores del Hospital de Pediatria SAMIC \"Profesor Dr. Juan P. Garrahan\"","tipo":"Proveedor no financiero"},{"codigo":55008,"nombre":"Asociación Mutual Unión Solidaria","tipo":"Proveedor no financiero"},{"codigo":55110,"nombre":"Asociación Mutual Vital","tipo":"Proveedor no financiero"},{"codigo":55052,"nombre":"Asociación Mututal 18 de Julio","tipo":"Proveedor no financiero"},{"codigo":55536,"nombre":"ATLANTIC CAPITAL S.A","tipo":"Proveedor no financiero"},{"codigo":55502,"nombre":"ATYLIUM FINANCE GROUP SA","tipo":"Proveedor no financiero"},{"codigo":55625,"nombre":"AUSTRAL SERVICIOS DE CRÉDITO S.A.","tipo":"Proveedor no financiero"},{"codigo":55598,"nombre":"AVANCRED SAS","tipo":"Proveedor no financiero"},{"codigo":55466,"nombre":"AXXIA LENDING S.A.","tipo":"Proveedor no financiero"},{"codigo":55317,"nombre":"BARSATEX S.A.","tipo":"Proveedor no financiero"},{"codigo":55100,"nombre":"BAZAR AVENIDA S.A.","tipo":"Proveedor no financiero"},{"codigo":55069,"nombre":"Bazar El Entrerriano S.A.","tipo":"Proveedor no financiero"},{"codigo":55573,"nombre":"BEE TOKEN SAS","tipo":"Proveedor no financiero"},{"codigo":55397,"nombre":"BELMONT CAPITAL S.A.","tipo":"Proveedor no financiero"},{"codigo":55222,"nombre":"BFA Inversiones y Finanzas S.A.","tipo":"Proveedor no financiero"},{"codigo":55454,"nombre":"BIA SRL","tipo":"Proveedor no financiero"},{"codigo":55445,"nombre":"BLM DESARROLLOS SA","tipo":"Proveedor no financiero"},{"codigo":55415,"nombre":"BLM SERVICIOS SA","tipo":"Proveedor no financiero"},{"codigo":55577,"nombre":"BLOQUES S.A.","tipo":"Proveedor no financiero"},{"codigo":55541,"nombre":"Blue Capital S.R.L","tipo":"Proveedor no financiero"},{"codigo":55469,"nombre":"BOCAS DEL TORO S.A.","tipo":"Proveedor no financiero"},{"codigo":55642,"nombre":"Bond Financial Broker SRL","tipo":"Proveedor no financiero"},{"codigo":55251,"nombre":"BR CAPITAL S.A.","tipo":"Proveedor no financiero"},{"codigo":55300,"nombre":"Buenos Aires Creditos SA","tipo":"Proveedor no financiero"},{"codigo":55470,"nombre":"CAMELUS S.A.","tipo":"Proveedor no financiero"},{"codigo":55009,"nombre":"Carsa S.A.","tipo":"Proveedor no financiero"},{"codigo":55514,"nombre":"CARTASUR CARDS S.A.U","tipo":"Proveedor no financiero"},{"codigo":55505,"nombre":"Cash Market SA","tipo":"Proveedor no financiero"},{"codigo":55496,"nombre":"Cash Online S.A.","tipo":"Proveedor no financiero"},{"codigo":55177,"nombre":"Catalinas Cooperativa de Crédito, Consumo y Vivienda Ltda.","tipo":"Proveedor no financiero"},{"codigo":55105,"nombre":"Ceibo Créditos S.A.","tipo":"Proveedor no financiero"},{"codigo":55011,"nombre":"Cetrogar S.A.","tipo":"Proveedor no financiero"},{"codigo":55012,"nombre":"CFN SRL","tipo":"Proveedor no financiero"},{"codigo":55553,"nombre":"CHANCHA PAY SAU","tipo":"Proveedor no financiero"},{"codigo":55560,"nombre":"CHECK MOVILIDAD SA","tipo":"Proveedor no financiero"},{"codigo":55013,"nombre":"Cierto Argentina S.A.","tipo":"Proveedor no financiero"},{"codigo":55395,"nombre":"CIGANDA & MASARIE S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55111,"nombre":"Clank S.A.","tipo":"Proveedor no financiero"},{"codigo":55377,"nombre":"Clave Creditos S.A.","tipo":"Proveedor no financiero"},{"codigo":55441,"nombre":"COARD S.A.","tipo":"Proveedor no financiero"},{"codigo":55287,"nombre":"COBRO FACIL SRL","tipo":"Proveedor no financiero"},{"codigo":55148,"nombre":"Collins S.A.","tipo":"Proveedor no financiero"},{"codigo":55523,"nombre":"COMERCIAL FERSA SRL","tipo":"Proveedor no financiero"},{"codigo":55376,"nombre":"COMERPYSRL","tipo":"Proveedor no financiero"},{"codigo":55587,"nombre":"COMODORO HS S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55189,"nombre":"Compañía General de Finanzas S.A.","tipo":"Proveedor no financiero"},{"codigo":55014,"nombre":"Compumundo S.A.","tipo":"Proveedor no financiero"},{"codigo":55139,"nombre":"Concretar Coop. de Crédito, Consumo y Vivienda Ltda","tipo":"Proveedor no financiero"},{"codigo":55373,"nombre":"Confiar del Sur EE S.A.","tipo":"Proveedor no financiero"},{"codigo":55186,"nombre":"Confinance S.A.","tipo":"Proveedor no financiero"},{"codigo":55612,"nombre":"CONFLUIR SRL","tipo":"Proveedor no financiero"},{"codigo":55280,"nombre":"CONSTRUCRED S.A.","tipo":"Proveedor no financiero"},{"codigo":55584,"nombre":"CONSUMEX S.A.","tipo":"Proveedor no financiero"},{"codigo":55098,"nombre":"CONSUMO S.A.","tipo":"Proveedor no financiero"},{"codigo":55375,"nombre":"COOP. DE CRED. CONS. Y VIV. MASELE LTDA","tipo":"Proveedor no financiero"},{"codigo":55123,"nombre":"Cooperativa 2001 de Vivienda, Crédito y Consumo Ltda.","tipo":"Proveedor no financiero"},{"codigo":55196,"nombre":"Cooperativa Concred de crédito y vivienda Ltda.","tipo":"Proveedor no financiero"},{"codigo":55453,"nombre":"Cooperativa de Credito Consumo y Vivienda Baymor Ltda","tipo":"Proveedor no financiero"},{"codigo":55593,"nombre":"Cooperativa de Credito Vanguardia","tipo":"Proveedor no financiero"},{"codigo":55178,"nombre":"Cooperativa de Crédito y Vivienda Unicred Ltda.","tipo":"Proveedor no financiero"},{"codigo":55017,"nombre":"Cooperativa de Crédito, Consumo y Servicios Sociales La Plata Ltda.","tipo":"Proveedor no financiero"},{"codigo":55108,"nombre":"Cooperativa de Crédito, Consumo y Vivienda Corona Ltda.","tipo":"Proveedor no financiero"},{"codigo":55185,"nombre":"Cooperativa de Crédito, Consumo y Vvienda Fincredit Ltda","tipo":"Proveedor no financiero"},{"codigo":55137,"nombre":"Cooperativa de Crédito, Consumo, Vivienda y Servicios Sociales Videgar Ltda","tipo":"Proveedor no financiero"},{"codigo":55018,"nombre":"Cooperativa de Provisión de Obras y Servicios Publicos y de Créditos Cuenca del Salado Ltda.","tipo":"Proveedor no financiero"},{"codigo":55634,"nombre":"Cooperativa de V.CyC. 20 de Junio Ltda.","tipo":"Proveedor no financiero"},{"codigo":55170,"nombre":"Cooperativa de Viv., Cred. y Con. Amigal Ltda.","tipo":"Proveedor no financiero"},{"codigo":55198,"nombre":"Cooperativa de Vivienda Crédito y Consumo Concepción Limitada","tipo":"Proveedor no financiero"},{"codigo":55089,"nombre":"COOPERATIVA DE VIVIENDA CREDITO Y CONSUMO CREDIAYUDA LTDA","tipo":"Proveedor no financiero"},{"codigo":55219,"nombre":"Cooperativa de Vivienda Crédito y Consumo La Integradora Limitada","tipo":"Proveedor no financiero"},{"codigo":55352,"nombre":"Cooperativa de vivienda crédito y consumo San José Ltda","tipo":"Proveedor no financiero"},{"codigo":55072,"nombre":"Cooperativa de vivienda, crédito y consumo Bicentenaria Ltda.","tipo":"Proveedor no financiero"},{"codigo":55188,"nombre":"Cooperativa de Vivienda, Crédito y Consumo del Litoral Ltda","tipo":"Proveedor no financiero"},{"codigo":55574,"nombre":"Cooperativa de Vivienda, Crédito y Consumo Finadi Limitada","tipo":"Proveedor no financiero"},{"codigo":55200,"nombre":"Cooperativa de Vivienda, Crédito y Consumo para el desarrollo limitado (CODESA)","tipo":"Proveedor no financiero"},{"codigo":55118,"nombre":"Cooperativa de Vivienda, Crédito y Consumo VIXA LTDA","tipo":"Proveedor no financiero"},{"codigo":55125,"nombre":"Cooperativa de Vivienda, Crédito, Consumo y Servicios Sociales Candelaria Ltda","tipo":"Proveedor no financiero"},{"codigo":55175,"nombre":"Cooperativa Interamericana de Credito, Vivienda y Consumo Limitada","tipo":"Proveedor no financiero"},{"codigo":55645,"nombre":"COPAR S.A.","tipo":"Proveedor no financiero"},{"codigo":55015,"nombre":"Coppel S.A.","tipo":"Proveedor no financiero"},{"codigo":55538,"nombre":"CORDOBA VALORES S.A.","tipo":"Proveedor no financiero"},{"codigo":55596,"nombre":"CORPORATE FACTORING S.A.","tipo":"Proveedor no financiero"},{"codigo":55462,"nombre":"CORVALAN 1160 SA","tipo":"Proveedor no financiero"},{"codigo":55265,"nombre":"CRE-DIN S. A.","tipo":"Proveedor no financiero"},{"codigo":55360,"nombre":"Credi-Full S.A.","tipo":"Proveedor no financiero"},{"codigo":55091,"nombre":"CREDIAR S.A.","tipo":"Proveedor no financiero"},{"codigo":55357,"nombre":"CREDIBEL S.A.","tipo":"Proveedor no financiero"},{"codigo":55024,"nombre":"CREDICUOTAS CONSUMO S.A.","tipo":"Proveedor no financiero"},{"codigo":55023,"nombre":"Credifácil S.A.F. y M.","tipo":"Proveedor no financiero"},{"codigo":55381,"nombre":"CREDIGOL S.A.","tipo":"Proveedor no financiero"},{"codigo":55109,"nombre":"Credikot COOPERATIVA DE VIVIENDA, CRÉDITO Y CONSUMO LTDA","tipo":"Proveedor no financiero"},{"codigo":55370,"nombre":"CREDIL S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55330,"nombre":"CREDILOW S.A.","tipo":"Proveedor no financiero"},{"codigo":55550,"nombre":"CREDIMAS PRENDARIO SAS","tipo":"Proveedor no financiero"},{"codigo":55214,"nombre":"Credinegocios Moscasil S.A.","tipo":"Proveedor no financiero"},{"codigo":55444,"nombre":"CREDISE S.A.","tipo":"Proveedor no financiero"},{"codigo":55128,"nombre":"Crediser Argentina S.A.","tipo":"Proveedor no financiero"},{"codigo":55201,"nombre":"Credit & Investment SRL","tipo":"Proveedor no financiero"},{"codigo":55295,"nombre":"CREDITAM LIMITADA S.A.","tipo":"Proveedor no financiero"},{"codigo":55411,"nombre":"CREDITAN COOPERATIVA DE VIVIENDA CREDITO Y CONSUMO LTDA","tipo":"Proveedor no financiero"},{"codigo":55294,"nombre":"CREDITECH SA","tipo":"Proveedor no financiero"},{"codigo":55597,"nombre":"Credito Azteca S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55266,"nombre":"CRÉDITO DEL VALLE S.A.","tipo":"Proveedor no financiero"},{"codigo":55054,"nombre":"Crédito Directo S.A.","tipo":"Proveedor no financiero"},{"codigo":55254,"nombre":"CREDITO INMOBILIARIO S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55308,"nombre":"CRÉDITOS AL RÍO S.A.","tipo":"Proveedor no financiero"},{"codigo":55388,"nombre":"CREDLAP S.A.","tipo":"Proveedor no financiero"},{"codigo":55095,"nombre":"CRENAC S.A.","tipo":"Proveedor no financiero"},{"codigo":55301,"nombre":"CRESCENS S.A.U.","tipo":"Proveedor no financiero"},{"codigo":55079,"nombre":"Cronocred S.A.","tipo":"Proveedor no financiero"},{"codigo":55345,"nombre":"CSPB INVERSIONES SA","tipo":"Proveedor no financiero"},{"codigo":55299,"nombre":"CUOTA CENTRAL ONLINE S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55245,"nombre":"CUOTAFACIL SA","tipo":"Proveedor no financiero"},{"codigo":55025,"nombre":"Cuotitas S.A.","tipo":"Proveedor no financiero"},{"codigo":55366,"nombre":"CYAP NOW S.A.","tipo":"Proveedor no financiero"},{"codigo":55506,"nombre":"CYFSA S.A.","tipo":"Proveedor no financiero"},{"codigo":55419,"nombre":"Daneio SA","tipo":"Proveedor no financiero"},{"codigo":55092,"nombre":"Dante Tanino Hogar S.A.","tipo":"Proveedor no financiero"},{"codigo":55080,"nombre":"DAP Cooperativa de Crédito y Consumo Ltda.","tipo":"Proveedor no financiero"},{"codigo":55465,"nombre":"Dar Prestamos S.A.","tipo":"Proveedor no financiero"},{"codigo":55579,"nombre":"DEAMPRO S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55026,"nombre":"Decréditos S.A.","tipo":"Proveedor no financiero"},{"codigo":55210,"nombre":"DEL PAIS COOPERATIVA DE CREDITO, CONSUMO Y VIVIENDA LIMITADA","tipo":"Proveedor no financiero"},{"codigo":55412,"nombre":"Delivery Hero Financial Services SA","tipo":"Proveedor no financiero"},{"codigo":55202,"nombre":"Depsa Valores S.A.","tipo":"Proveedor no financiero"},{"codigo":55243,"nombre":"Desarrollo en Trading y Agronegocios S.A.","tipo":"Proveedor no financiero"},{"codigo":55361,"nombre":"DESARROLLOS AYTER S.A.","tipo":"Proveedor no financiero"},{"codigo":55204,"nombre":"Development Corp S.A.","tipo":"Proveedor no financiero"},{"codigo":55359,"nombre":"DHF SA","tipo":"Proveedor no financiero"},{"codigo":55154,"nombre":"Diagnóstico y Servicios S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55501,"nombre":"DIE ZUKUNFT SA","tipo":"Proveedor no financiero"},{"codigo":55646,"nombre":"DIGIFIN S. A.","tipo":"Proveedor no financiero"},{"codigo":55090,"nombre":"DILCAR S.A.","tipo":"Proveedor no financiero"},{"codigo":55255,"nombre":"DINEFA S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55318,"nombre":"DLL LEASING ARGENTINA S.A.","tipo":"Proveedor no financiero"},{"codigo":55452,"nombre":"DOCTA FIDUCIARIA S.A.S","tipo":"Proveedor no financiero"},{"codigo":55236,"nombre":"Dourat SRL","tipo":"Proveedor no financiero"},{"codigo":55228,"nombre":"Drab S.A.","tipo":"Proveedor no financiero"},{"codigo":55120,"nombre":"Ebucar S.A.","tipo":"Proveedor no financiero"},{"codigo":55508,"nombre":"ECOCASH EJECUTIVA SA","tipo":"Proveedor no financiero"},{"codigo":55522,"nombre":"EDILCRED S.A.","tipo":"Proveedor no financiero"},{"codigo":55374,"nombre":"EJS S.A.","tipo":"Proveedor no financiero"},{"codigo":55333,"nombre":"El Nexo S.A.","tipo":"Proveedor no financiero"},{"codigo":55027,"nombre":"ELECTRONICA MEGATONE SRL","tipo":"Proveedor no financiero"},{"codigo":55142,"nombre":"Emprendimiento La Luisina SRL","tipo":"Proveedor no financiero"},{"codigo":55640,"nombre":"ENTE MUNICIPAL DE LA PLATA (ORDENANZA 10659/09)","tipo":"Proveedor no financiero"},{"codigo":55602,"nombre":"ENTERPRISE AID GROUP S.A.","tipo":"Proveedor no financiero"},{"codigo":55603,"nombre":"ENTREPAL SAS","tipo":"Proveedor no financiero"},{"codigo":55298,"nombre":"ESPACIO DIGITAL S.A","tipo":"Proveedor no financiero"},{"codigo":55621,"nombre":"ESTOICOS GROUP S.A.","tipo":"Proveedor no financiero"},{"codigo":55600,"nombre":"EXE CAPITAL S.A.","tipo":"Proveedor no financiero"},{"codigo":55225,"nombre":"EXI S.A.","tipo":"Proveedor no financiero"},{"codigo":55403,"nombre":"FACILCRED S.A.","tipo":"Proveedor no financiero"},{"codigo":55028,"nombre":"Favanet S.A.","tipo":"Proveedor no financiero"},{"codigo":55332,"nombre":"FENIXCRED S.A.","tipo":"Proveedor no financiero"},{"codigo":55368,"nombre":"FERO BAHIA S.A.","tipo":"Proveedor no financiero"},{"codigo":55605,"nombre":"FERSI S A","tipo":"Proveedor no financiero"},{"codigo":55163,"nombre":"FF Capital Group S.A.","tipo":"Proveedor no financiero"},{"codigo":55639,"nombre":"FIDEICOMISO COPAR","tipo":"Proveedor no financiero"},{"codigo":55449,"nombre":"FIDEICOMISO PRIVADO DE ADMINISTRACION CENFIDE","tipo":"Proveedor no financiero"},{"codigo":55474,"nombre":"FIDEICOMISOS MANDATOS E INVERSIONES SA","tipo":"Proveedor no financiero"},{"codigo":55515,"nombre":"Fidelity SRL","tipo":"Proveedor no financiero"},{"codigo":55479,"nombre":"FIDUCIA ARGENTINA S.A.S.","tipo":"Proveedor no financiero"},{"codigo":55636,"nombre":"FINAGRO SOCIEDAD ANONIMA","tipo":"Proveedor no financiero"},{"codigo":55215,"nombre":"FINAMERICA SA","tipo":"Proveedor no financiero"},{"codigo":55303,"nombre":"FINANCE GROUP SRL","tipo":"Proveedor no financiero"},{"codigo":55096,"nombre":"FINANCIACIONES CUYO S.A.","tipo":"Proveedor no financiero"},{"codigo":55620,"nombre":"Financie Rápido S.A.","tipo":"Proveedor no financiero"},{"codigo":55297,"nombre":"FINANCITY S.A.","tipo":"Proveedor no financiero"},{"codigo":55093,"nombre":"FINANCOMP S.A.","tipo":"Proveedor no financiero"},{"codigo":55263,"nombre":"FINANCOMPRA S.A.","tipo":"Proveedor no financiero"},{"codigo":55315,"nombre":"FINANCRED SA","tipo":"Proveedor no financiero"},{"codigo":55510,"nombre":"FINANLEASE S.A","tipo":"Proveedor no financiero"},{"codigo":55340,"nombre":"FINANPRO S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55507,"nombre":"FINANZAS DIGITALES SAS","tipo":"Proveedor no financiero"},{"codigo":55172,"nombre":"FINARES S.A.","tipo":"Proveedor no financiero"},{"codigo":55409,"nombre":"Finet SA","tipo":"Proveedor no financiero"},{"codigo":55564,"nombre":"FINGRO TECHNOLOGY S.A.","tipo":"Proveedor no financiero"},{"codigo":55497,"nombre":"FINLATINA SA","tipo":"Proveedor no financiero"},{"codigo":55224,"nombre":"FINMAT SRL","tipo":"Proveedor no financiero"},{"codigo":55433,"nombre":"Finpact SAS","tipo":"Proveedor no financiero"},{"codigo":55216,"nombre":"Finsol Microcreditos S.A.","tipo":"Proveedor no financiero"},{"codigo":55552,"nombre":"FIntekka SRL","tipo":"Proveedor no financiero"},{"codigo":55595,"nombre":"FINVOI CAPITAL SA","tipo":"Proveedor no financiero"},{"codigo":55643,"nombre":"FORTALEZA MERCADO Y FINANZAS SA","tipo":"Proveedor no financiero"},{"codigo":55617,"nombre":"FRAMAPI SA","tipo":"Proveedor no financiero"},{"codigo":55539,"nombre":"FRANKFURT S.A.","tipo":"Proveedor no financiero"},{"codigo":55351,"nombre":"Fraudkeeper SAS","tipo":"Proveedor no financiero"},{"codigo":55030,"nombre":"Fravega S.A.C.I. e I.","tipo":"Proveedor no financiero"},{"codigo":55355,"nombre":"FULLCREDIT SA","tipo":"Proveedor no financiero"},{"codigo":55192,"nombre":"G Y F Factoring S.A.","tipo":"Proveedor no financiero"},{"codigo":55485,"nombre":"G&T GESTIONES COMERCIALES S.A.","tipo":"Proveedor no financiero"},{"codigo":55356,"nombre":"G10 EMPRENDIMIENTOS SA","tipo":"Proveedor no financiero"},{"codigo":55031,"nombre":"Garbarino S.A.I.C. e I.","tipo":"Proveedor no financiero"},{"codigo":55430,"nombre":"GARNET INVEST S.A.","tipo":"Proveedor no financiero"},{"codigo":55032,"nombre":"Gema Cooperativa de Crédito, Consumo y Vivienda Ltda.","tipo":"Proveedor no financiero"},{"codigo":55610,"nombre":"GEMINIS ARGENTINA S.A.","tipo":"Proveedor no financiero"},{"codigo":55094,"nombre":"Genesys S.A.","tipo":"Proveedor no financiero"},{"codigo":55190,"nombre":"Gestisur Cooperativa de crédito y vivienda Ltda","tipo":"Proveedor no financiero"},{"codigo":55288,"nombre":"GLOBAL CAPITAL MANAGEMENT SA","tipo":"Proveedor no financiero"},{"codigo":55145,"nombre":"Global Finanzas S.A.","tipo":"Proveedor no financiero"},{"codigo":55383,"nombre":"GOLD SMART S.A.","tipo":"Proveedor no financiero"},{"codigo":55060,"nombre":"Gran Cooperativa de Crédito, Vivienda, Consumo y Servicios Sociales Limitada","tipo":"Proveedor no financiero"},{"codigo":55521,"nombre":"GRAY MATTER SRL","tipo":"Proveedor no financiero"},{"codigo":55575,"nombre":"GRECO INVERSIONES SRL","tipo":"Proveedor no financiero"},{"codigo":55644,"nombre":"GRUPO FINANCIERO CyS SAS","tipo":"Proveedor no financiero"},{"codigo":55604,"nombre":"GRUPO LOS LAPACHOS CO. S. A. S.","tipo":"Proveedor no financiero"},{"codigo":55076,"nombre":"Grupo Prestafácil S.A.","tipo":"Proveedor no financiero"},{"codigo":55558,"nombre":"GRUPO SACAR S.A.","tipo":"Proveedor no financiero"},{"codigo":55033,"nombre":"Grupo Unión S.A.","tipo":"Proveedor no financiero"},{"codigo":55473,"nombre":"GrupoCDG SA","tipo":"Proveedor no financiero"},{"codigo":55208,"nombre":"GS Negocios S.A.","tipo":"Proveedor no financiero"},{"codigo":55545,"nombre":"GZM SOLUCIONES S.A","tipo":"Proveedor no financiero"},{"codigo":55068,"nombre":"Hendel Hogar S.A.","tipo":"Proveedor no financiero"},{"codigo":55034,"nombre":"Hogar Total S.A.","tipo":"Proveedor no financiero"},{"codigo":55258,"nombre":"HOMYT S.A","tipo":"Proveedor no financiero"},{"codigo":55075,"nombre":"IDUN INVERSIONES S.A.","tipo":"Proveedor no financiero"},{"codigo":55607,"nombre":"In Quantita S.A.","tipo":"Proveedor no financiero"},{"codigo":55484,"nombre":"Inclusión Financiera Integral SRL","tipo":"Proveedor no financiero"},{"codigo":55149,"nombre":"INDO S.A.","tipo":"Proveedor no financiero"},{"codigo":55273,"nombre":"INSIGHT GROUP SA","tipo":"Proveedor no financiero"},{"codigo":55211,"nombre":"Integración Solidaria de Ayuda Recíproca","tipo":"Proveedor no financiero"},{"codigo":55414,"nombre":"INTERCAPITAL FACTORING S.A.","tipo":"Proveedor no financiero"},{"codigo":55343,"nombre":"INTERREDES COMERCIAL S.A.S.","tipo":"Proveedor no financiero"},{"codigo":55197,"nombre":"Invercoop Cooperativa de Crédito, Consumo y Vivienda Limitada","tipo":"Proveedor no financiero"},{"codigo":55275,"nombre":"INVERSORA CREDITAL S.A.","tipo":"Proveedor no financiero"},{"codigo":55367,"nombre":"INVERSORA DEL NORTE S.A.","tipo":"Proveedor no financiero"},{"codigo":55568,"nombre":"Inverta S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55601,"nombre":"invertech srl","tipo":"Proveedor no financiero"},{"codigo":55622,"nombre":"IPERFIN S.A. EN FORMACION","tipo":"Proveedor no financiero"},{"codigo":55513,"nombre":"IXPAY SA","tipo":"Proveedor no financiero"},{"codigo":55344,"nombre":"JALIN S.A.","tipo":"Proveedor no financiero"},{"codigo":55499,"nombre":"JBOUCHARD SAS","tipo":"Proveedor no financiero"},{"codigo":55241,"nombre":"Joamar S.A.","tipo":"Proveedor no financiero"},{"codigo":55316,"nombre":"KALIMA S.A.","tipo":"Proveedor no financiero"},{"codigo":55629,"nombre":"KREDIYA SA","tipo":"Proveedor no financiero"},{"codigo":55442,"nombre":"LA LOMITA CAPITAL S.A.","tipo":"Proveedor no financiero"},{"codigo":55503,"nombre":"LA PLATA FIUME D ORO S. A.","tipo":"Proveedor no financiero"},{"codigo":55097,"nombre":"La Vitalicia Sociedad Mutual","tipo":"Proveedor no financiero"},{"codigo":55117,"nombre":"Lancers S.A.","tipo":"Proveedor no financiero"},{"codigo":55498,"nombre":"LANTI SA","tipo":"Proveedor no financiero"},{"codigo":55209,"nombre":"Las Tierras S.A.","tipo":"Proveedor no financiero"},{"codigo":55468,"nombre":"LATIN AMERICAN TRUST S.A.","tipo":"Proveedor no financiero"},{"codigo":55347,"nombre":"Latin Sur Cooperativa de Credito, Consumo y Vivienda Ltda.","tipo":"Proveedor no financiero"},{"codigo":55556,"nombre":"LENDITECH SRL","tipo":"Proveedor no financiero"},{"codigo":55618,"nombre":"LIAN GROUP S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55246,"nombre":"LIBERMAR SOCIEDAD ANONIMA","tipo":"Proveedor no financiero"},{"codigo":55195,"nombre":"Libertador Factoring S.A.","tipo":"Proveedor no financiero"},{"codigo":55146,"nombre":"LIPACO MERCANTIL S.A.","tipo":"Proveedor no financiero"},{"codigo":55594,"nombre":"LJM DESARROLLOS E INVERSIONES SRL","tipo":"Proveedor no financiero"},{"codigo":55549,"nombre":"Lobos Capital S.A.","tipo":"Proveedor no financiero"},{"codigo":55328,"nombre":"LOGINCREDIT S.A.","tipo":"Proveedor no financiero"},{"codigo":55035,"nombre":"Lombardi Abel S.A.","tipo":"Proveedor no financiero"},{"codigo":55483,"nombre":"Longcred S.A.","tipo":"Proveedor no financiero"},{"codigo":55432,"nombre":"LUCSE INVERSIONES S.A.","tipo":"Proveedor no financiero"},{"codigo":55616,"nombre":"LUFRANI SA","tipo":"Proveedor no financiero"},{"codigo":55516,"nombre":"M&B COMPANY S. A. S.","tipo":"Proveedor no financiero"},{"codigo":55627,"nombre":"M&C SOLUTIONS SRL","tipo":"Proveedor no financiero"},{"codigo":55310,"nombre":"MACRO SOLUTIONS SA","tipo":"Proveedor no financiero"},{"codigo":55339,"nombre":"MAEBA S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55037,"nombre":"Maffra S.A.","tipo":"Proveedor no financiero"},{"codigo":55193,"nombre":"Maficom Factoring S.A.","tipo":"Proveedor no financiero"},{"codigo":55399,"nombre":"MAMLUSENA S.A.","tipo":"Proveedor no financiero"},{"codigo":55631,"nombre":"MARFIN S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55420,"nombre":"MARIAS CAPITAL SA","tipo":"Proveedor no financiero"},{"codigo":55540,"nombre":"MASORI S. A.","tipo":"Proveedor no financiero"},{"codigo":55590,"nombre":"MATE & CO SAU","tipo":"Proveedor no financiero"},{"codigo":55134,"nombre":"MAXIHOGAR SRL","tipo":"Proveedor no financiero"},{"codigo":55599,"nombre":"Mejor Credito S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55609,"nombre":"MELIUS CONSULTING S.A.S.","tipo":"Proveedor no financiero"},{"codigo":55396,"nombre":"MERIDIANO NORTE S.A.","tipo":"Proveedor no financiero"},{"codigo":55477,"nombre":"MERITE S.A.","tipo":"Proveedor no financiero"},{"codigo":55306,"nombre":"METROFINANZAS S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55242,"nombre":"MG GROUP SA","tipo":"Proveedor no financiero"},{"codigo":55313,"nombre":"MICODEMO S.A.","tipo":"Proveedor no financiero"},{"codigo":55400,"nombre":"MICRO SISTEMAS S. A.","tipo":"Proveedor no financiero"},{"codigo":55494,"nombre":"Mifloder SAS","tipo":"Proveedor no financiero"},{"codigo":55457,"nombre":"MIGXION S.A.","tipo":"Proveedor no financiero"},{"codigo":55463,"nombre":"MILLASA S.A.","tipo":"Proveedor no financiero"},{"codigo":55207,"nombre":"Mills Capital S.A.","tipo":"Proveedor no financiero"},{"codigo":55282,"nombre":"MINS LFE SAS","tipo":"Proveedor no financiero"},{"codigo":55606,"nombre":"MONELOAPP SA","tipo":"Proveedor no financiero"},{"codigo":55569,"nombre":"Money Life S.R.L","tipo":"Proveedor no financiero"},{"codigo":55085,"nombre":"Moni Online S.A.","tipo":"Proveedor no financiero"},{"codigo":55425,"nombre":"MOOVITECH S.A.","tipo":"Proveedor no financiero"},{"codigo":55421,"nombre":"Movimiento MKT S.R.L","tipo":"Proveedor no financiero"},{"codigo":55256,"nombre":"MSA CREDITOS S.A.","tipo":"Proveedor no financiero"},{"codigo":55226,"nombre":"MSM Leasing S.A.","tipo":"Proveedor no financiero"},{"codigo":55213,"nombre":"Multiplycard S.A.","tipo":"Proveedor no financiero"},{"codigo":55230,"nombre":"Multiprocesos S.A.","tipo":"Proveedor no financiero"},{"codigo":55191,"nombre":"Murana S.A.","tipo":"Proveedor no financiero"},{"codigo":55534,"nombre":"Mutual 22 de septiembre","tipo":"Proveedor no financiero"},{"codigo":55143,"nombre":"Mutual Asistencial y Social","tipo":"Proveedor no financiero"},{"codigo":55464,"nombre":"MUTUAL DE INTEGRANTES DEL PODER JUDICIAL","tipo":"Proveedor no financiero"},{"codigo":55130,"nombre":"Mutual de Jubilados, Retirados y Pensionados Provinciales","tipo":"Proveedor no financiero"},{"codigo":55439,"nombre":"MUTUAL DE PORTEÑA ASOCIACION CULTURAL Y DEPORTIVA","tipo":"Proveedor no financiero"},{"codigo":55244,"nombre":"MUTUAL DEL AGRO LA INDUSTRIA Y EL COMERCIO DE SANTA FE","tipo":"Proveedor no financiero"},{"codigo":55348,"nombre":"MUTUAL DEL PERSONAL CIVIL DE LA NACION","tipo":"Proveedor no financiero"},{"codigo":55309,"nombre":"MUTUAL DEL PERSONAL DEL MINISTERIO DE EDUCACION Y JUSTICIA DE LA NACION","tipo":"Proveedor no financiero"},{"codigo":55227,"nombre":"Mutual Federada 25 de junio SPR","tipo":"Proveedor no financiero"},{"codigo":55057,"nombre":"Mutual Integral de Servicios","tipo":"Proveedor no financiero"},{"codigo":55443,"nombre":"MVT Finanzas S.A.","tipo":"Proveedor no financiero"},{"codigo":55040,"nombre":"N&F Capital Markets S.A.","tipo":"Proveedor no financiero"},{"codigo":55041,"nombre":"Naldo Lombardi S.A.","tipo":"Proveedor no financiero"},{"codigo":55392,"nombre":"NEGOCIOS FINANCIEROS CREDILOMAS S.A.","tipo":"Proveedor no financiero"},{"codigo":55337,"nombre":"NETTER SA","tipo":"Proveedor no financiero"},{"codigo":55183,"nombre":"Nobel Cooperativa de Crédito, Vivienda y Servicio de Transporte Ltda.","tipo":"Proveedor no financiero"},{"codigo":55581,"nombre":"NORVEX S.A.","tipo":"Proveedor no financiero"},{"codigo":55632,"nombre":"Novavica S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55346,"nombre":"Number S.A.","tipo":"Proveedor no financiero"},{"codigo":55405,"nombre":"Oneri Bilancio S.A.","tipo":"Proveedor no financiero"},{"codigo":55362,"nombre":"ONOYEN S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55493,"nombre":"OPENCRED SA","tipo":"Proveedor no financiero"},{"codigo":55073,"nombre":"Oportunidad Microfinanciera Latinoamericana OMLA S.A.","tipo":"Proveedor no financiero"},{"codigo":55336,"nombre":"OSCAR BARBIERI S.A.","tipo":"Proveedor no financiero"},{"codigo":55231,"nombre":"OTC S.R.L","tipo":"Proveedor no financiero"},{"codigo":55020,"nombre":"Palmares Cooperativa de Vivienda, Crédito, Consumo y Servicios Sociales Ltda.","tipo":"Proveedor no financiero"},{"codigo":55435,"nombre":"PARABENS TRUST S.A.","tipo":"Proveedor no financiero"},{"codigo":55491,"nombre":"PATAGONIA VERDE NETWORK SAU","tipo":"Proveedor no financiero"},{"codigo":55608,"nombre":"PERc SA","tipo":"Proveedor no financiero"},{"codigo":55592,"nombre":"PESOPLUS S.A.","tipo":"Proveedor no financiero"},{"codigo":55583,"nombre":"PIER FOREVER S.A.","tipo":"Proveedor no financiero"},{"codigo":55580,"nombre":"Platinum Viajes S.A.","tipo":"Proveedor no financiero"},{"codigo":55042,"nombre":"Plural Cooperativa de Crédito, Consumo y Vivienda Ltda.","tipo":"Proveedor no financiero"},{"codigo":55532,"nombre":"PLUS COOPERATIVA DE CREDITO CONS Y VIV LTDA.","tipo":"Proveedor no financiero"},{"codigo":55548,"nombre":"PLUS FINANCIERA S.A","tipo":"Proveedor no financiero"},{"codigo":55124,"nombre":"Plusrasgo S.A.","tipo":"Proveedor no financiero"},{"codigo":55194,"nombre":"Policredito Coop. Limitada de Crédito y Vivienda.","tipo":"Proveedor no financiero"},{"codigo":55429,"nombre":"POLO VALORES S.A.","tipo":"Proveedor no financiero"},{"codigo":55320,"nombre":"POTSDAM S.A.","tipo":"Proveedor no financiero"},{"codigo":55436,"nombre":"POWERFIN SA","tipo":"Proveedor no financiero"},{"codigo":55456,"nombre":"PREST SPC SAS","tipo":"Proveedor no financiero"},{"codigo":55554,"nombre":"PRESTACIONES S.A.","tipo":"Proveedor no financiero"},{"codigo":55087,"nombre":"Préstamos Bam S.A.","tipo":"Proveedor no financiero"},{"codigo":55155,"nombre":"PRESTAMOS Y CONSUMOS DE ARGENTINA S.A.","tipo":"Proveedor no financiero"},{"codigo":55450,"nombre":"PRESTY SRL","tipo":"Proveedor no financiero"},{"codigo":55151,"nombre":"PREVER COOPERATIVA DE CRÉDITO Y CONSUMO LTDA","tipo":"Proveedor no financiero"},{"codigo":55341,"nombre":"PROAVALAR S.R.L","tipo":"Proveedor no financiero"},{"codigo":55074,"nombre":"Profuturo S.A.","tipo":"Proveedor no financiero"},{"codigo":55043,"nombre":"Provincia Leasing S.A.","tipo":"Proveedor no financiero"},{"codigo":55630,"nombre":"PROYECTAR SERVICIOS FINANCIEROS S.A.S.","tipo":"Proveedor no financiero"},{"codigo":55113,"nombre":"PYME COOPERATIVA DE CREDITO Y VIVIENDA LIMITADA","tipo":"Proveedor no financiero"},{"codigo":55641,"nombre":"QIANG FINTECH ARGENTINA SAS","tipo":"Proveedor no financiero"},{"codigo":55428,"nombre":"QWERTY SA","tipo":"Proveedor no financiero"},{"codigo":55061,"nombre":"Radio Sapienza S.A.","tipo":"Proveedor no financiero"},{"codigo":55638,"nombre":"Rearden S.A.","tipo":"Proveedor no financiero"},{"codigo":55591,"nombre":"RED DE PAGOS CPA S. A. U.","tipo":"Proveedor no financiero"},{"codigo":55307,"nombre":"RED DE PRESTAMOS SA","tipo":"Proveedor no financiero"},{"codigo":55434,"nombre":"Red Salinas Network S.A.","tipo":"Proveedor no financiero"},{"codigo":55635,"nombre":"RED UNISOL OPERACIONES","tipo":"Proveedor no financiero"},{"codigo":55314,"nombre":"REGGIO DI CALABRIA S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55044,"nombre":"Ribeiro S.A.C.I.F.A.","tipo":"Proveedor no financiero"},{"codigo":55488,"nombre":"RIO FRANCO SA","tipo":"Proveedor no financiero"},{"codigo":55624,"nombre":"RISKER CAPITAL SA","tipo":"Proveedor no financiero"},{"codigo":55133,"nombre":"Rotas S.A.","tipo":"Proveedor no financiero"},{"codigo":55480,"nombre":"RUMKALO S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55283,"nombre":"S&S SOLUTIONS SA","tipo":"Proveedor no financiero"},{"codigo":55379,"nombre":"S.I.G. S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55518,"nombre":"Saiola S.A.","tipo":"Proveedor no financiero"},{"codigo":55566,"nombre":"SALOMON S.A. SOCIEDAD ANONIMA","tipo":"Proveedor no financiero"},{"codigo":55158,"nombre":"San Cristóbal Servicios Financieros S.A.","tipo":"Proveedor no financiero"},{"codigo":55296,"nombre":"SANTANDER CONSUMER SA","tipo":"Proveedor no financiero"},{"codigo":55045,"nombre":"SBM Créditos S.A.","tipo":"Proveedor no financiero"},{"codigo":55408,"nombre":"SCANIA CREDIT ARGENTINA S.A.U.","tipo":"Proveedor no financiero"},{"codigo":55046,"nombre":"Schejter y Schejter S.A.","tipo":"Proveedor no financiero"},{"codigo":55423,"nombre":"SCORING X S.A.U.","tipo":"Proveedor no financiero"},{"codigo":55393,"nombre":"SEILOP S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55179,"nombre":"Sequoia S.A.","tipo":"Proveedor no financiero"},{"codigo":55562,"nombre":"SERVICIOS CADMA SA","tipo":"Proveedor no financiero"},{"codigo":55269,"nombre":"SERVICIOS OSTENDE SRL","tipo":"Proveedor no financiero"},{"codigo":55389,"nombre":"SI CAPITAL S.A.","tipo":"Proveedor no financiero"},{"codigo":55048,"nombre":"Sicom S.A.","tipo":"Proveedor no financiero"},{"codigo":55613,"nombre":"SIEMPRE VIERNES SRL","tipo":"Proveedor no financiero"},{"codigo":55588,"nombre":"SIMBA TRADING S.A.","tipo":"Proveedor no financiero"},{"codigo":55547,"nombre":"sistemas unificados de credito dirigido SA","tipo":"Proveedor no financiero"},{"codigo":55589,"nombre":"SKYFIN S.A.","tipo":"Proveedor no financiero"},{"codigo":55249,"nombre":"SMART CASH S.A.","tipo":"Proveedor no financiero"},{"codigo":55495,"nombre":"SOCIEDAD DE CREDITO SA","tipo":"Proveedor no financiero"},{"codigo":55424,"nombre":"SOLUCIONES FINANCORP SA","tipo":"Proveedor no financiero"},{"codigo":55323,"nombre":"SOLUCIONES INTEGRALES S.A.","tipo":"Proveedor no financiero"},{"codigo":55279,"nombre":"SOLVENTA SAS","tipo":"Proveedor no financiero"},{"codigo":55247,"nombre":"SOLVENTIA SA","tipo":"Proveedor no financiero"},{"codigo":55458,"nombre":"SOLVERS S.A.","tipo":"Proveedor no financiero"},{"codigo":55305,"nombre":"SORAMUS S.A","tipo":"Proveedor no financiero"},{"codigo":55164,"nombre":"SPEED COOPERATIVA DE CREDITO CONSUMO VIVIENDA Y SERVICIOS SOCIALES LTDA","tipo":"Proveedor no financiero"},{"codigo":55533,"nombre":"SSCAPITAL SOCIEDAD ANONIMA","tipo":"Proveedor no financiero"},{"codigo":55150,"nombre":"Sudeste Valores S.A.","tipo":"Proveedor no financiero"},{"codigo":55472,"nombre":"SUMA INVERSIONES S.A.","tipo":"Proveedor no financiero"},{"codigo":55528,"nombre":"Sumas Gestión Financiera S.A.","tipo":"Proveedor no financiero"},{"codigo":55380,"nombre":"SUR FINANZAS GROUP SA","tipo":"Proveedor no financiero"},{"codigo":55489,"nombre":"SUR FINANZAS PSP S.A.","tipo":"Proveedor no financiero"},{"codigo":55049,"nombre":"Surfinan S.A.","tipo":"Proveedor no financiero"},{"codigo":55050,"nombre":"TBD Cooperativa de Crédito, Vivienda y Consumo Ltda.","tipo":"Proveedor no financiero"},{"codigo":55159,"nombre":"TCC Cooperativa de Crédito, Consumo y Vivienda Limitada","tipo":"Proveedor no financiero"},{"codigo":55572,"nombre":"Teemopay S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55404,"nombre":"THE RAINBOW FAMILY S.A.","tipo":"Proveedor no financiero"},{"codigo":55619,"nombre":"The Troop Group S.A.","tipo":"Proveedor no financiero"},{"codigo":55132,"nombre":"TIENDAJUBILO S.A.","tipo":"Proveedor no financiero"},{"codigo":55561,"nombre":"TJS CAPITAL S.A.","tipo":"Proveedor no financiero"},{"codigo":55486,"nombre":"TODOPAY S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55512,"nombre":"TRADING PROFIT S.A.","tipo":"Proveedor no financiero"},{"codigo":55292,"nombre":"TRANSCON S.A.U.","tipo":"Proveedor no financiero"},{"codigo":55302,"nombre":"TRAYECTORIA LEASING S.A.U.","tipo":"Proveedor no financiero"},{"codigo":55176,"nombre":"Trend Capital S.A.","tipo":"Proveedor no financiero"},{"codigo":55174,"nombre":"Tres60 Services S.A.","tipo":"Proveedor no financiero"},{"codigo":55338,"nombre":"TRESSFEN SA","tipo":"Proveedor no financiero"},{"codigo":55278,"nombre":"TRS AMAPOLA S.A.S.","tipo":"Proveedor no financiero"},{"codigo":55546,"nombre":"TRUSTIGO S.A.","tipo":"Proveedor no financiero"},{"codigo":55623,"nombre":"Truver S.A.","tipo":"Proveedor no financiero"},{"codigo":55304,"nombre":"TU ADELANTO SA","tipo":"Proveedor no financiero"},{"codigo":55276,"nombre":"TU PRESTAMO ONLINE SAS","tipo":"Proveedor no financiero"},{"codigo":55181,"nombre":"TUTELAR SERVICIOS FINANCIEROS S.A.","tipo":"Proveedor no financiero"},{"codigo":55382,"nombre":"UFINAN SA","tipo":"Proveedor no financiero"},{"codigo":55156,"nombre":"UNIGESTION SA","tipo":"Proveedor no financiero"},{"codigo":55063,"nombre":"Uninverc S.A.","tipo":"Proveedor no financiero"},{"codigo":55331,"nombre":"UNION DEL PERSONAL CIVIL DE LA PROVINCIA DEL CHACO","tipo":"Proveedor no financiero"},{"codigo":55289,"nombre":"UNION PROVINCIAL ASOCIACION MUTUAL","tipo":"Proveedor no financiero"},{"codigo":55365,"nombre":"UNISA INVERSIONES S.A.","tipo":"Proveedor no financiero"},{"codigo":55467,"nombre":"UQUIA S.R.L","tipo":"Proveedor no financiero"},{"codigo":55235,"nombre":"VALERZA S.A.","tipo":"Proveedor no financiero"},{"codigo":55334,"nombre":"VALUARTE SRL","tipo":"Proveedor no financiero"},{"codigo":55585,"nombre":"Vanda Digital S.A.","tipo":"Proveedor no financiero"},{"codigo":55136,"nombre":"Vento Capital S.A.","tipo":"Proveedor no financiero"},{"codigo":55582,"nombre":"VERTIX S.A.","tipo":"Proveedor no financiero"},{"codigo":55637,"nombre":"VESTRA CAPITAL SRL","tipo":"Proveedor no financiero"},{"codigo":55611,"nombre":"Via Próxima S.R.L.","tipo":"Proveedor no financiero"},{"codigo":55353,"nombre":"VIKA 2010 S.A.","tipo":"Proveedor no financiero"},{"codigo":55543,"nombre":"VISIR SA","tipo":"Proveedor no financiero"},{"codigo":55402,"nombre":"VITSAN S.A.","tipo":"Proveedor no financiero"},{"codigo":55153,"nombre":"VW JUNIN JAC S.A.","tipo":"Proveedor no financiero"},{"codigo":55166,"nombre":"WAYNICOIN S.A.","tipo":"Proveedor no financiero"},{"codigo":55535,"nombre":"WCA CAPITAL S. A. S.","tipo":"Proveedor no financiero"},{"codigo":55386,"nombre":"WIBOND SAS","tipo":"Proveedor no financiero"},{"codigo":55184,"nombre":"Wilmar Cooperativa de Vivienda, Crédito y Consumo Ltda","tipo":"Proveedor no financiero"},{"codigo":55586,"nombre":"WUNDER S.A.","tipo":"Proveedor no financiero"},{"codigo":55578,"nombre":"Xcoop Argentina SA","tipo":"Proveedor no financiero"},{"codigo":55544,"nombre":"YOLO CASH S.A.","tipo":"Proveedor no financiero"},{"codigo":55401,"nombre":"ZHARO SA","tipo":"Proveedor no financiero"},{"codigo":40009,"nombre":"Afluenta S.A.","tipo":"Plataforma de créditos"},{"codigo":40011,"nombre":"BELAT SAU","tipo":"Plataforma de créditos"},{"codigo":40010,"nombre":"C-TECH S.A.","tipo":"Plataforma de créditos"},{"codigo":40012,"nombre":"Comunity Trust S.A.","tipo":"Plataforma de créditos"},{"codigo":40015,"nombre":"GLOBAL LOAN SA","tipo":"Plataforma de créditos"},{"codigo":40013,"nombre":"MANGUEAR S.A.","tipo":"Plataforma de créditos"},{"codigo":40014,"nombre":"MORPHEUS S.A.U.","tipo":"Plataforma de créditos"},{"codigo":50001,"nombre":"Acindar Pymes S.G.R.","tipo":"SGR"},{"codigo":50020,"nombre":"AFB Avales S.G.R.","tipo":"SGR"},{"codigo":50002,"nombre":"Affidavit SGR","tipo":"SGR"},{"codigo":50003,"nombre":"Agroaval S.G.R.","tipo":"SGR"},{"codigo":50041,"nombre":"Alianza S.G.R.","tipo":"SGR"},{"codigo":50004,"nombre":"Argenpymes S.G.R.","tipo":"SGR"},{"codigo":50046,"nombre":"Argentina Ciudad S.G.R.","tipo":"SGR"},{"codigo":50021,"nombre":"Aval Ar S.G.R.","tipo":"SGR"},{"codigo":50005,"nombre":"Aval Federal S.G.R.","tipo":"SGR"},{"codigo":50024,"nombre":"Aval Fértil S.G.R.","tipo":"SGR"},{"codigo":50007,"nombre":"Aval Rural S.G.R.","tipo":"SGR"},{"codigo":50025,"nombre":"Avales del Centro S.G.R.","tipo":"SGR"},{"codigo":50028,"nombre":"Avaluar S.G.R.","tipo":"SGR"},{"codigo":50009,"nombre":"Campo Aval S.G.R.","tipo":"SGR"},{"codigo":50035,"nombre":"Conaval S.G.R.","tipo":"SGR"},{"codigo":50030,"nombre":"Confiables S.G.R.","tipo":"SGR"},{"codigo":50026,"nombre":"Crecer S.G.R.","tipo":"SGR"},{"codigo":50033,"nombre":"Crédito Argentino S.G.R.","tipo":"SGR"},{"codigo":50011,"nombre":"Cuyo Aval S.G.R.","tipo":"SGR"},{"codigo":50012,"nombre":"Don Mario S.G.R.","tipo":"SGR"},{"codigo":50037,"nombre":"Fidem S.G.R.","tipo":"SGR"},{"codigo":50029,"nombre":"Fid Aval S.G.R.","tipo":"SGR"},{"codigo":50039,"nombre":"Fintech S.G.R.","tipo":"SGR"},{"codigo":50013,"nombre":"Garantías Bind S.G.R.","tipo":"SGR"},{"codigo":50014,"nombre":"Garantizar S.G.R.","tipo":"SGR"},{"codigo":50038,"nombre":"Innova S.G.R.","tipo":"SGR"},{"codigo":50015,"nombre":"Integra Pymes S.G.R.","tipo":"SGR"},{"codigo":50040,"nombre":"Mills S.G.R.","tipo":"SGR"},{"codigo":50036,"nombre":"Movil S.G.R.","tipo":"SGR"},{"codigo":50043,"nombre":"Neuquén Pymes S.G.R.","tipo":"SGR"},{"codigo":50010,"nombre":"Poder S.G.R.","tipo":"SGR"},{"codigo":50018,"nombre":"Potenciar S.G.R.","tipo":"SGR"},{"codigo":50017,"nombre":"Promover S.G.R.","tipo":"SGR"},{"codigo":50032,"nombre":"Resiliencia S.G.R.","tipo":"SGR"},{"codigo":50034,"nombre":"Rig Avales S.G.R.","tipo":"SGR"},{"codigo":50042,"nombre":"Solidum S.G.R.","tipo":"SGR"},{"codigo":50044,"nombre":"Trend S.G.R.","tipo":"SGR"},{"codigo":50023,"nombre":"Unión S.G.R.","tipo":"SGR"},{"codigo":50048,"nombre":"Zofingen S.G.R.","tipo":"SGR"}];
+
+// Igual que ALIAS_EF, pero para el listado de agentes no financieros
+const ALIAS_PNFC = {};
+
+const ABREV = { BCO:"BANCO", NVO:"NUEVO", ARG:"ARGENTINA", PCIA:"PROVINCIA", MUNIC:"MUNICIPAL",
+  CIA:"COMPANIA", FIN:"FINANCIERA", INV:"INVERSION", COM:"COMERCIO", REP:"REPUBLICA",
+  REG:"REGIONAL", CRED:"CREDITO", STA:"SANTA", STGO:"SANTIAGO", SANTIGO:"SANTIAGO",
+  CDAD:"CIUDAD", COOP:"COOPERATIVO", LTDA:"LIMITADA", LTDO:"LIMITADO" };
+const VACIAS = new Set(["DE","DEL","LA","LAS","LOS","EL","Y","AND","OF","SA","SAU","SAC","SACI","SRL","SAIF",
+  "SOCIEDAD","ANONIMA","UNIPERSONAL","LIMITADA","LIMITADO","CIA","SUCURSAL","ARGENTINA","LTD","NV","INC"]);
+const GENERICAS = new Set(["BANCO","BANK","BANQUE","COMPANIA","FINANCIERA","CREDITO","NUEVO","NUEVA",
+  "PROVINCIA","MUNICIPAL","ASOCIACION","MUTUAL","COOPERATIVA","SERVICIOS","TARJETA","CLUB","ATLETICO","SOCIAL",
+  "CENTRO","GARANTIAS","RECIPROCAS","SGR","GRUPO","SOCIOS","ADHERENTES","AYUDA","ENTRE","PERSONAL","EMPLEADOS",
+  "CONSUMO","FINANZAS","EMPRESA","EMPRESAS","ARGENTINO"]);
+
+const normalizar = s => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                                 .toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim();
+
+function tokens(nombre){
+  let s = normalizar(nombre).replace(/\bBS\s+AS\b/g, "BUENOS AIRES");
+  return s.split(" ").filter(Boolean).map(t => ABREV[t] || t)
+          .filter(t => t.length > 1 && !VACIAS.has(t));
+}
+
+function puntaje(a, b){
+  const A = new Set(a), B = new Set(b);
+  const comunes = [...A].filter(t => B.has(t));
+  if (!comunes.length || !comunes.some(t => !GENERICAS.has(t))) return 0;
+  const distintivos = comunes.filter(t => !GENERICAS.has(t)).length;
+  return comunes.length / Math.min(A.size, B.size) + distintivos * 0.01;
+}
+
+// Busca el nombre que informa la API dentro de un listado; devuelve la entidad o null
+function emparejarEn(nombreApi, listado, alias, umbral){
+  const n = normalizar(nombreApi);
+  for (const e of listado)
+    for (const a of (alias[e.codigo] || []))
+      if (n.startsWith(normalizar(a))) return e;
+
+  const t = tokens(nombreApi);
+  let mejor = null, mejorP = 0;
+  for (const e of listado) {
+    const p = puntaje(t, e._tokens || (e._tokens = tokens(e.nombre)));
+    if (p > mejorP) { mejorP = p; mejor = e; }
+  }
+  return mejorP >= umbral ? mejor : null;
+}
+
+// Primero se busca entre las entidades financieras; si no aparece, entre los otros agentes.
+// El umbral del segundo listado es más exigente porque tiene muchos nombres parecidos.
+const emparejarEF = nombreApi => emparejarEn(nombreApi, ENTIDADES_EF, ALIAS_EF, 0.6);
+const emparejarPNFC = nombreApi => emparejarEn(nombreApi, ENTIDADES_PNFC, ALIAS_PNFC, 0.7);
+
+let mapaEF = new Map();     // nombre de la API -> entidad financiera (o null)
+let mapaPNFC = new Map();   // nombre de la API -> agente no financiero (o null)
+const efDe = banco => mapaEF.get(banco) || null;
+const pnfcDe = banco => mapaPNFC.get(banco) || null;
+const codigoDe = banco => efDe(banco)?.codigo ?? pnfcDe(banco)?.codigo ?? null;
+const etiquetaEntidad = banco => { const c = codigoDe(banco); return c == null ? banco : `${c} · ${banco}`; };
+
+/* ------------------------------------------------ consulta a la API */
+
+function procesar(json, descripcionSinDatos){
+  if (!json || json.status !== 200 || !json.results) {
+    throw new Error(json?.errorMessages?.join(" ") || "La respuesta no tiene el formato esperado.");
+  }
+  const r = json.results, filas = [];
+  for (const p of r.periodos || []) for (const e of p.entidades || []) {
+    filas.push({
+      banco: e.entidad,
+      periodo: fmtPeriodo(p.periodo),
+      monto: e.monto == null ? null : Number(e.monto),
+      situacion: e.situacion == null ? null : Number(e.situacion),
+      fechaSit1: e.fechaSit1 || null,
+      diasAtrasoPago: e.diasAtrasoPago == null ? null : Number(e.diasAtrasoPago),
+      refinanciaciones: e.refinanciaciones ?? null,
+      recategorizacionOblig: e.recategorizacionOblig ?? null,
+      situacionJuridica: e.situacionJuridica ?? null,
+      irrecDisposicionTecnica: e.irrecDisposicionTecnica ?? null,
+      enRevision: e.enRevision ?? null,
+      procesoJud: e.procesoJud ?? null
+    });
+  }
+  if (!filas.length) throw new Error(descripcionSinDatos);
+  return { cuit: String(r.identificacion), denominacion: r.denominacion, filas };
+}
+
+async function consultar(){
+  const d = soloDigitos($("cuit").value);
+  if (d.length !== 11) { mensaje("Tiene que tener 11 dígitos.", true); return; }
+  if (!digitoOk(d)) { mensaje("El dígito verificador no coincide. Revisá el número.", true); return; }
+
+  cerrarPanel();
+  $("alternativa").style.display = "none";
+  $("resultadoHistorico").style.display = "none";
+  $("botonEntidades").disabled = true;
+  $("resumenEntidades").textContent = "Consultando entidades…";
+  mensaje("Consultando al BCRA…");
+  $("buscar").disabled = true;
+
+  const sinDatos = "No hay deuda informada para los últimos 24 meses.";
+  try {
+    const respuesta = await fetch(API_HISTORICA + d, { headers: { Accept: "application/json" } });
+    let json = null;
+    try { json = await respuesta.json(); } catch {}
+    if (respuesta.status === 404) throw new Error(`No hay registros para ${formatoCuit(d)}.`);
+    if (respuesta.status === 429) throw new Error("El BCRA limitó temporalmente las consultas. Probá nuevamente más tarde.");
+    if (!respuesta.ok && !json) throw new Error(`El BCRA respondió con error ${respuesta.status}.`);
+
+    consulta = procesar(json, sinDatos);
+    guardarEnLaUrl(d);
+    cargarEntidades();
+    cargarRangoPeriodos();
+    $("resultadoHistorico").style.display = "block";
+    dibujar();
+    mensaje("");
+
+  } catch (e) {
+    if (e instanceof TypeError) {
+      mensaje("El navegador bloqueó la conexión con la API del BCRA.", true);
+      $("motivo").textContent = "El navegador bloqueó la conexión o no hay acceso a la API.";
+      $("enlace").href = API_HISTORICA + d;
+      $("enlace").textContent = "Abrir la consulta en otra pestaña";
+      $("alternativa").style.display = "block";
+    } else { $("resultadoHistorico").style.display = "none"; mensaje(e.message, true); }
+  } finally { $("buscar").disabled = false; }
+}
+
+/* ------------------------------------------------ filtro de entidades */
+
+function cargarEntidades(){
+  entidadesDisponibles = [...new Set((consulta?.filas || [])
+    .map(f => f.banco)
+    .filter(Boolean))];
+
+  mapaEF = new Map(
+    entidadesDisponibles.map(b => [b, emparejarEF(b)])
+  );
+
+  // Solo se busca en el segundo listado lo que no es entidad financiera
+  mapaPNFC = new Map(
+    entidadesDisponibles.map(b => [b, efDe(b) ? null : emparejarPNFC(b)])
+  );
+
+  entidadesDisponibles.sort((a, b) => {
+    const ca = codigoDe(a), cb = codigoDe(b);
+
+    if (ca != null && cb != null) return ca - cb;
+    if (ca != null) return -1;
+    if (cb != null) return 1;
+
+    return a.localeCompare(b, "es");
+  });
+
+  entidadesElegidas = new Set(entidadesDisponibles);   // arranca con todas tildadas
+  filtrosActivos = new Set();
+  filtroTexto = "";
+  pintarPanelEntidades();
+}
+
+// Entidades del listado propio en las que este CUIT tiene deuda
+const entidadesFinancieras = () => entidadesDisponibles.filter(b => efDe(b));
+const entidadesDSIB = () => entidadesDisponibles.filter(b => efDe(b)?.dsib);
+const categoriasGrupoII = () => [...new Set(
+  entidadesFinancieras().map(b => efDe(b)?.grupoII).filter(Boolean)
+)].sort((a, b) => a.localeCompare(b, "es"));
+const entidadesPorGrupoII = grupoII =>
+  entidadesDisponibles.filter(b => efDe(b)?.grupoII === grupoII);
+const seleccionExacta = lista => lista.length > 0 &&
+  entidadesElegidas.size === lista.length && lista.every(b => entidadesElegidas.has(b));
+const agentesNoFinancieros = () => entidadesDisponibles.filter(b => pnfcDe(b));
+const todasSeleccionadas = () => entidadesDisponibles.length > 0 &&
+  entidadesElegidas.size === entidadesDisponibles.length;
+
+// Filtros rápidos: se pueden tildar varios a la vez y la selección es la unión de sus entidades.
+// Las claves son "ef", "pnfc" o "g:<categoría de Grupo II>".
+let filtrosActivos = new Set();
+const FILTROS = {
+  ef:   { nombre: "Entidades financieras",       lista: () => entidadesFinancieras() },
+  pnfc: { nombre: "Otros agentes no financieros", lista: () => agentesNoFinancieros() }
+};
+const listaDeFiltro = clave => clave.startsWith("g:") ? entidadesPorGrupoII(clave.slice(2)) : FILTROS[clave].lista();
+const nombreDeFiltro = clave => clave.startsWith("g:") ? clave.slice(2) : FILTROS[clave].nombre;
+const filtroActivo = clave => filtrosActivos.has(clave);
+
+function aplicarFiltroRapido(clave, activado){
+  activado ? filtrosActivos.add(clave) : filtrosActivos.delete(clave);
+  entidadesElegidas = new Set([...filtrosActivos].flatMap(listaDeFiltro));
+  pintarPanelEntidades();
+  dibujar();
+}
+
+let filtroTexto = "";
+
+function pintarPanelEntidades(){
+  const panel = $("panelEntidades");
+  panel.innerHTML = "";
+
+  if (!entidadesDisponibles.length) {
+    $("botonEntidades").disabled = true;
+    $("resumenEntidades").textContent = "No se encontraron entidades";
+    return;
+  }
+
+  // --- buscador dentro del panel ---
+  const cajaBusqueda = document.createElement("div");
+  cajaBusqueda.className = "buscador-panel";
+  const input = document.createElement("input");
+  input.type = "search";
+  input.placeholder = "Buscar entidad…";
+  input.value = filtroTexto;
+  input.setAttribute("aria-label", "Buscar entidad");
+  input.addEventListener("input", e => { filtroTexto = e.target.value; pintarPanelEntidades(); $("panelEntidades").querySelector("input[type=search]").focus(); });
+  input.addEventListener("keydown", e => { if (e.key === "Escape") { filtroTexto = ""; pintarPanelEntidades(); } });
+  cajaBusqueda.append(input);
+  panel.append(cajaBusqueda);
+
+  // --- opciones que agrupan entidades: se ocultan mientras hay texto en el buscador ---
+  const buscando = normalizar(filtroTexto) !== "";
+  if (!buscando) {
+
+  // --- todas ---
+  const todas = document.createElement("label");
+  todas.className = "opcion grupo";
+  const chkTodas = document.createElement("input");
+  chkTodas.type = "checkbox";
+  chkTodas.checked = todasSeleccionadas();
+  chkTodas.onchange = e => {
+    filtrosActivos.clear();
+    entidadesElegidas = e.target.checked ? new Set(entidadesDisponibles) : new Set();
+    pintarPanelEntidades();
+    dibujar();
+  };
+  const txtTodas = document.createElement("span");
+  txtTodas.className = "nombre";
+  txtTodas.textContent = `Todas las entidades (${entidadesDisponibles.length})`;
+  todas.append(chkTodas, txtTodas);
+  panel.append(todas);
+
+  // --- solo entidades financieras del listado ---
+  const listadas = entidadesFinancieras();
+  if (listadas.length) {
+    const ef = document.createElement("label");
+    ef.className = "opcion grupo";
+    const chkEF = document.createElement("input");
+    chkEF.type = "checkbox";
+    chkEF.checked = filtroActivo("ef");
+    chkEF.onchange = e => aplicarFiltroRapido("ef", e.target.checked);
+    const txtEF = document.createElement("span");
+    txtEF.className = "nombre";
+    txtEF.textContent = `Entidades financieras (${listadas.length})`;
+    ef.append(chkEF, txtEF);
+    panel.append(ef);
+  }
+
+
+  // --- otros agentes no financieros (segundo listado) ---
+  const noFinancieros = agentesNoFinancieros();
+  if (noFinancieros.length) {
+    const opPNFC = document.createElement("label");
+    opPNFC.className = "opcion grupo";
+    const chkPNFC = document.createElement("input");
+    chkPNFC.type = "checkbox";
+    chkPNFC.checked = filtroActivo("pnfc");
+    chkPNFC.onchange = e => aplicarFiltroRapido("pnfc", e.target.checked);
+    const txtPNFC = document.createElement("span");
+    txtPNFC.className = "nombre";
+    txtPNFC.textContent = `Otros agentes no financieros (${noFinancieros.length})`;
+    opPNFC.append(chkPNFC, txtPNFC);
+    panel.append(opPNFC);
+  }
+
+  // --- una opción por categoría de Grupo_II presente en la deuda del cliente ---
+  for (const grupoII of categoriasGrupoII()) {
+    const listaGrupo = entidadesPorGrupoII(grupoII);
+    const opGrupo = document.createElement("label");
+    opGrupo.className = "opcion grupo";
+    const chkGrupo = document.createElement("input");
+    chkGrupo.type = "checkbox";
+    chkGrupo.checked = filtroActivo("g:" + grupoII);
+    chkGrupo.onchange = e => aplicarFiltroRapido("g:" + grupoII, e.target.checked);
+    const txtGrupo = document.createElement("span");
+    txtGrupo.className = "nombre";
+    txtGrupo.textContent = `${grupoII} (${listaGrupo.length})`;
+    opGrupo.append(chkGrupo, txtGrupo);
+    panel.append(opGrupo);
+  }
+  }   // fin de las opciones de grupo
+
+  // --- lista filtrada por el buscador ---
+  const busca = normalizar(filtroTexto);
+  const visibles = entidadesDisponibles.filter(b => {
+    if (!busca) return true;
+    const cod = codigoDe(b) ?? "";
+    const nombreListado = efDe(b)?.nombre || pnfcDe(b)?.nombre || "";
+    return normalizar(b).includes(busca) || normalizar(nombreListado).includes(busca) ||
+           String(cod).includes(filtroTexto.trim());
+  });
+
+  if (!visibles.length) {
+    const vacio = document.createElement("div");
+    vacio.className = "sin-resultados";
+    vacio.textContent = "Ninguna entidad coincide con la búsqueda.";
+    panel.append(vacio);
+  }
+
+  for (const banco of visibles) {
+    const op = document.createElement("label");
+    op.className = "opcion";
+    const chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.checked = entidadesElegidas.has(banco);
+    chk.onchange = () => {
+      filtrosActivos.clear();
+      chk.checked ? entidadesElegidas.add(banco) : entidadesElegidas.delete(banco);
+      pintarPanelEntidades();
+      dibujar();
+    };
+    const punto = document.createElement("span");
+    punto.className = "color";
+    punto.style.background = colorEntidad(banco);
+    const nombre = document.createElement("span");
+    nombre.className = "nombre";
+    nombre.textContent = banco;
+    nombre.title = banco;
+    const codigo = document.createElement("span");
+    codigo.className = "codigo";
+    const ef = efDe(banco), pnfc = pnfcDe(banco);
+    codigo.textContent = codigoDe(banco) ?? "";
+    if (ef) codigo.title = ef.nombre + " · grupo " + ef.grupo;
+    else if (pnfc) codigo.title = pnfc.nombre + " · " + pnfc.tipo;
+    op.append(chk, punto, nombre, codigo);
+    panel.append(op);
+  }
+
+  $("botonEntidades").disabled = false;
+  const n = entidadesElegidas.size;
+  $("resumenEntidades").textContent =
+    n === 0 ? "Ninguna entidad seleccionada"
+            : filtrosActivos.size === 1 ? `${nombreDeFiltro([...filtrosActivos][0])} (${n})`
+            : filtrosActivos.size > 1 ? `${filtrosActivos.size} filtros combinados (${n})`
+            : todasSeleccionadas() ? `Todas las entidades (${n})`
+            : n === 1 ? etiquetaEntidad([...entidadesElegidas][0])
+                        : `${n} de ${entidadesDisponibles.length} entidades`;
+}
+
+const entidadVisible = banco => entidadesElegidas.has(banco);
+
+function abrirPanel(){
+  $("panelEntidades").hidden = false;
+  $("botonEntidades").setAttribute("aria-expanded", "true");
+  $("panelEntidades").querySelector("input[type=search]")?.focus();
+}
+function cerrarPanel(){ $("panelEntidades").hidden = true; $("botonEntidades").setAttribute("aria-expanded", "false"); }
+
+$("botonEntidades").onclick = () => $("panelEntidades").hidden ? abrirPanel() : cerrarPanel();
+document.addEventListener("click", e => { if (!$("desplegable").contains(e.target)) cerrarPanel(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") cerrarPanel(); });
+
+/* ------------------------------------------------ orden de las entidades */
+
+// El gráfico va siempre por código de entidad; esto ordena solo las filas de la tabla.
+const ORDENES = { codigo: "Por código", deuda: "Por deuda", situacion: "Por situación" };
+let ordenElegido = "codigo";
+let contextoTabla = null;   // últimas filas dibujadas, para rehacer la tabla sin tocar el gráfico
+
+const posicionEntidad = banco => {
+  const i = entidadesDisponibles.indexOf(banco);
+  return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+};
+
+// Último valor informado por la entidad, dentro del rango visible
+function ultimoValor(banco, filas, campo){
+  const propias = filas.filter(f => f.banco === banco)
+    .sort((a, b) => a.periodo.localeCompare(b.periodo));
+  for (let i = propias.length - 1; i >= 0; i--)
+    if (propias[i][campo] != null) return propias[i][campo];
+  return null;
+}
+
+// criterio: "codigo" (el mismo del desplegable, con las entidades sin listado al final),
+// "deuda" o "situacion" (de mayor a menor; sin dato informado va al final).
+function ordenarBancos(bancos, filas, criterio = "codigo"){
+  const porCodigo = (a, b) => posicionEntidad(a) - posicionEntidad(b);
+  if (criterio === "codigo") return [...bancos].sort(porCodigo);
+
+  const campo = criterio === "deuda" ? "monto" : "situacion";
+  const valor = new Map(bancos.map(b => [b, ultimoValor(b, filas, campo)]));
+  return [...bancos].sort((a, b) => {
+    const va = valor.get(a), vb = valor.get(b);
+    if (va == null && vb == null) return porCodigo(a, b);
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    return vb - va || porCodigo(a, b);
+  });
+}
+
+function pintarSelectorOrden(){
+  const selector = $("selectorOrden");
+  selector.innerHTML = "";
+  for (const [clave, etiqueta] of Object.entries(ORDENES)) {
+    const boton = document.createElement("button");
+    boton.textContent = etiqueta;
+    boton.setAttribute("aria-pressed", clave === ordenElegido);
+    boton.onclick = () => { ordenElegido = clave; pintarSelectorOrden(); actualizarTabla(); };
+    selector.appendChild(boton);
+  }
+}
+
+// Rehace solo la tabla, dejando el gráfico como está
+function actualizarTabla(){
+  if (!contextoTabla) return;
+  const { filas, bancos, periodos } = contextoTabla;
+  construirTabla(filas, ordenarBancos(bancos, filas, ordenElegido), periodos);
+}
+
+/* ------------------------------------------------ control de rango temporal */
+
+function cargarRangoPeriodos(){
+  periodosHistoricos = [...new Set((consulta?.filas || []).map(f => f.periodo))].sort();
+  const max = Math.max(0, periodosHistoricos.length - 1);
+  for (const id of ["rangoDesde", "rangoHasta"]) { $(id).min = 0; $(id).max = max; }
+  idxDesde = 0; idxHasta = max;
+  $("rangoDesde").value = idxDesde; $("rangoHasta").value = idxHasta;
+  $("rango").style.display = periodosHistoricos.length > 1 ? "block" : "none";
+  actualizarTextoRango();
+}
+
+function actualizarTextoRango(){
+  if (!periodosHistoricos.length) return;
+  $("rangoDesdeTexto").textContent = periodosHistoricos[idxDesde];
+  $("rangoHastaTexto").textContent = periodosHistoricos[idxHasta];
+  const max = Math.max(1, periodosHistoricos.length - 1);
+  const a = (idxDesde / max) * 100, b = (idxHasta / max) * 100;
+  $("pistaActiva").style.left = a + "%";
+  $("pistaActiva").style.width = (b - a) + "%";
+}
+
+function moverRango(){
+  let a = Number($("rangoDesde").value), b = Number($("rangoHasta").value);
+  if (a > b) [a, b] = [b, a];               // los pulgares no se cruzan
+  idxDesde = a; idxHasta = b;
+  actualizarTextoRango();
+  dibujar();
+}
+
+$("rangoDesde").addEventListener("input", moverRango);
+$("rangoHasta").addEventListener("input", moverRango);
+$("rangoReset").onclick = () => {
+  idxDesde = 0; idxHasta = Math.max(0, periodosHistoricos.length - 1);
+  $("rangoDesde").value = idxDesde; $("rangoHasta").value = idxHasta;
+  actualizarTextoRango();
+  dibujar();
+};
+
+const enRango = periodo => {
+  if (!periodosHistoricos.length) return true;
+  return periodo >= periodosHistoricos[idxDesde] && periodo <= periodosHistoricos[idxHasta];
+};
+
+/* ------------------------------------------------ gráfico y tabla */
+
+function dibujar(){
+  if (!consulta) return;
+  const cfg = VARIABLES[variableElegida], c = colores();
+
+  const filas = consulta.filas.filter(f => entidadVisible(f.banco) && enRango(f.periodo));
+  const periodos = [...new Set(filas.map(f => f.periodo))].sort();
+  const bancos = ordenarBancos([...new Set(filas.map(f => f.banco))], filas);
+  contextoTabla = { filas, bancos, periodos };
+
+  $("nombreHistorico").textContent = consulta.denominacion || formatoCuit(consulta.cuit);
+
+  if (!filas.length) {
+    $("detalleHistorico").textContent = entidadesElegidas.size === 0
+      ? "Ninguna entidad seleccionada: tildá al menos una en el desplegable."
+      : "No hay datos para la selección realizada.";
+    if (grafico) { grafico.destroy(); grafico = null; }
+    contextoTabla = null;
+    $("leyendaHistorico").innerHTML = "";
+    $("tablaHistorico").innerHTML = `<tbody><tr><td>${entidadesElegidas.size === 0
+      ? "Ninguna entidad seleccionada." : "No hay datos para la selección realizada."}</td></tr></tbody>`;
+    return;
+  }
+
+  $("detalleHistorico").textContent =
+    `${formatoCuit(consulta.cuit)} · ${bancos.length} ${bancos.length===1?"entidad":"entidades"} · ${periodos[0]} a ${periodos.at(-1)}`;
+
+  // En variables escalonadas (situación) muchas entidades comparten el mismo valor y sus líneas
+  // quedan superpuestas. Se separan apenas en vertical para que cada una se pueda señalar;
+  // el tooltip y la tabla siguen mostrando el valor real.
+  const desplazamiento = i => cfg.escalonada && bancos.length > 1
+    ? ((i / (bancos.length - 1)) - 0.5) * 0.3 : 0;
+
+  const datasets = bancos.map((banco, i) => {
+    const valores = new Map(filas.filter(f => f.banco === banco).map(f => [f.periodo, f[variableElegida]]));
+    const col = colorEntidad(banco);
+    return {
+      label: etiquetaEntidad(banco),
+      banco,                                  // para buscar sus datos en el tooltip
+      data: periodos.map(p => {
+        const v = valores.has(p) ? valores.get(p) : null;
+        return v == null ? null : v + desplazamiento(i);
+      }),
+      borderColor: col, backgroundColor: col, borderWidth: 2,
+      pointRadius: periodos.length > 18 ? 2 : 3, pointHoverRadius: 6,
+      stepped: cfg.escalonada, tension: 0, spanGaps: false
+    };
+  });
+
+  // Acceso rápido a la fila de cada entidad en cada período, para el tooltip
+  const filaDe = new Map(filas.map(f => [f.banco + "|" + f.periodo, f]));
+  const fmt = (v, dec) => v == null ? "–" : Number(v).toLocaleString("es-AR", { maximumFractionDigits: dec });
+
+  // Techo del eje: el máximo configurado (o el mayor valor real, si lo supera) más el margen.
+  // Así una situación 6, si aparece, tampoco queda cortada.
+  const mayorReal = Math.max(...filas.map(f => f[variableElegida]).filter(v => v != null));
+  const techoEje = cfg.max == null ? undefined : Math.max(cfg.max, mayorReal) + (cfg.margen || 0);
+
+  if (grafico) grafico.destroy();
+  serieResaltada = null;
+  grafico = new Chart($("canvasHistorico"), {
+    type: "line",
+    data: { labels: periodos, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
+      // "nearest" toma solo el punto más cercano al cursor: una entidad por vez
+      interaction: { mode: "nearest", intersect: false, axis: "xy" },
+      onHover: (evento, elementos, chart) => resaltarSerie(chart, elementos[0]?.datasetIndex ?? null),
+      plugins: {
+        legend: { display: false },            // la leyenda va en HTML, debajo del gráfico
+        tooltip: {
+          displayColors: true,
+          // Si varios puntos quedan a la misma distancia del cursor, se muestra uno solo:
+          // el de la línea resaltada
+          filter: (item, indice, items) => {
+            const elegido = items.find(x => x.datasetIndex === serieResaltada) || items[0];
+            return item === elegido;
+          },
+          callbacks: {
+            title: items => items[0]?.dataset.label ?? "",
+            label: ctx => {
+              const f = filaDe.get(ctx.dataset.banco + "|" + ctx.label);
+              if (!f) return `${ctx.label}: ${fmt(ctx.parsed.y, cfg.decimales)}`;
+              return [
+                `Período: ${ctx.label}`,
+                ...Object.entries(VARIABLES).map(([k, v]) => `${v.etiqueta}: ${fmt(f[k], v.decimales)}`)
+              ];
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: c.tinta, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }, grid: { display: false } },
+        y: { min: cfg.min, max: techoEje,
+             title: { display: true, text: cfg.etiqueta, color: c.tinta },
+             ticks: { color: c.tinta, precision: cfg.decimales === 0 ? 0 : undefined,
+                      stepSize: cfg.escalonada ? 1 : undefined,
+                      callback: v => Number(v).toLocaleString("es-AR") },
+             // en variables enteras, solo marcas enteras: el margen de arriba queda sin rótulo ni línea
+             afterBuildTicks: eje => { if (cfg.escalonada) eje.ticks = eje.ticks.filter(t => Number.isInteger(t.value)); },
+             grid: { color: c.linea } }
+      }
+    }
+  });
+
+  pintarLeyenda(datasets);
+  actualizarTabla();
+}
+
+// Leyenda en HTML: se acomoda en varias líneas y nunca corta los nombres
+function pintarLeyenda(datasets){
+  const ul = $("leyendaHistorico");
+  ul.innerHTML = "";
+  datasets.forEach((ds, i) => {
+    const li = document.createElement("li");
+    li.dataset.indice = i;
+    const punto = document.createElement("span");
+    punto.className = "punto";
+    punto.style.background = ds.borderColor;
+    const txt = document.createElement("span");
+    txt.textContent = ds.label;
+    li.append(punto, txt);
+    // pasar el mouse por la referencia también resalta la línea
+    li.addEventListener("mouseenter", () => grafico && resaltarSerie(grafico, i));
+    li.addEventListener("mouseleave", () => grafico && resaltarSerie(grafico, null));
+    ul.append(li);
+  });
+}
+
+// Engrosa la línea de la entidad señalada y afina las demás
+let serieResaltada = null;
+function resaltarSerie(chart, indice){
+  if (indice === serieResaltada) return;
+  serieResaltada = indice;
+  chart.data.datasets.forEach((ds, i) => {
+    ds.borderWidth = indice == null ? 2 : (i === indice ? 3.5 : 1.25);
+  });
+  chart.update("none");
+  document.querySelectorAll("#leyendaHistorico li").forEach(li =>
+    li.classList.toggle("resaltada", Number(li.dataset.indice) === indice));
+}
+
+function construirTabla(filas, bancos, periodos){
+  const ultimo = periodos.at(-1);
+  let html = `<thead><tr><th>Entidad</th><th>Último período</th>` +
+    Object.values(VARIABLES).map(v => `<th class="num">${esc(v.etiqueta)}</th>`).join("") +
+    `</tr></thead><tbody>`;
+
+  for (const banco of bancos) {
+    const ultimaFila = filas.filter(f => f.banco === banco)
+      .sort((a, b) => a.periodo.localeCompare(b.periodo)).at(-1);
+    html += `<tr><td><span class="punto" style="background:${colorEntidad(banco)}"></span>${esc(etiquetaEntidad(banco))}</td>` +
+      `<td>${esc(ultimaFila.periodo)}${ultimaFila.periodo !== ultimo ? " (sin datos luego)" : ""}</td>` +
+      Object.entries(VARIABLES).map(([clave, v]) => {
+        const valor = ultimaFila[clave];
+        return `<td class="num">${valor == null ? "–" : valor.toLocaleString("es-AR", { maximumFractionDigits: v.decimales })}</td>`;
+      }).join("") + `</tr>`;
+  }
+  $("tablaHistorico").innerHTML = html + "</tbody>";
+}
+
+function pintarSelector(){
+  const selector = $("selectorHistorico");
+  selector.innerHTML = "";
+  for (const [clave, v] of Object.entries(VARIABLES)) {
+    const boton = document.createElement("button");
+    boton.textContent = v.etiqueta;
+    boton.setAttribute("aria-pressed", clave === variableElegida);
+    boton.onclick = () => { variableElegida = clave; pintarSelector(); dibujar(); };
+    selector.appendChild(boton);
+  }
+}
+
+/* ------------------------------------------------ eventos generales */
+
+$("cuit").addEventListener("input", e => {
+  const d = soloDigitos(e.target.value).slice(0, 11);
+  let t = d;
+  if (d.length > 2) t = d.slice(0,2) + "-" + d.slice(2);
+  if (d.length > 10) t = d.slice(0,2) + "-" + d.slice(2,10) + "-" + d.slice(10);
+  e.target.value = t;
+});
+$("cuit").addEventListener("keydown", e => { if (e.key === "Enter") consultar(); });
+$("buscar").onclick = consultar;
+
+$("usarPegado").onclick = () => {
+  try {
+    consulta = procesar(JSON.parse($("pegado").value), "No hay deuda informada.");
+    cargarEntidades();
+    cargarRangoPeriodos();
+    $("resultadoHistorico").style.display = "block";
+    dibujar();
+    mensaje("");
+  } catch (e) {
+    mensaje(e instanceof SyntaxError
+      ? "Lo pegado no es un JSON válido. Copiá todo el texto de la pestaña."
+      : e.message, true);
+  }
+};
+
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (consulta) dibujar(); });
+
+/* ------------------------------------------------ CUIT recibido por la dirección */
+
+// Acepta ?cuit=20123456789, #20123456789 y /huella/20123456789 (con el 404.html que redirige)
+function cuitDeLaUrl(){
+  const params = new URLSearchParams(location.search);
+  const candidatos = [params.get("cuit"), params.get("id"), location.hash.slice(1),
+                      location.pathname.split("/").pop()];
+  for (const c of candidatos) {
+    const d = soloDigitos(c || "");
+    if (d.length === 11) return d;
+  }
+  return null;
+}
+
+// Deja la dirección con el CUIT consultado, para poder compartirla o recargar la página
+function guardarEnLaUrl(cuit){
+  try {
+    const url = new URL(location.href);
+    url.searchParams.set("cuit", cuit);
+    url.hash = "";
+    history.replaceState(null, "", url);
+  } catch {}
+}
+
+function consultarDesdeLaUrl(){
+  const d = cuitDeLaUrl();
+  if (!d) return;
+  $("cuit").value = formatoCuit(d);
+  consultar();
+}
+
+pintarSelector();
+pintarSelectorOrden();
+consultarDesdeLaUrl();
+</script>
+</body>
+</html>
